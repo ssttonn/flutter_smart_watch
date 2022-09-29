@@ -1,29 +1,44 @@
-import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+part of flutter_smart_watch;
 
-import 'flutter_smart_watch_method_channel.dart';
+abstract class _FlutterSmartWatchPlatform {
+  static _FlutterSmartWatchPlatform _instance =
+      _MethodChannelFlutterSmartWatch();
 
-abstract class FlutterSmartWatchPlatform extends PlatformInterface {
-  /// Constructs a FlutterSmartWatchPlatform.
-  FlutterSmartWatchPlatform() : super(token: _token);
+  static _FlutterSmartWatchPlatform get instance => _instance;
 
-  static final Object _token = Object();
-
-  static FlutterSmartWatchPlatform _instance = MethodChannelFlutterSmartWatch();
-
-  /// The default instance of [FlutterSmartWatchPlatform] to use.
-  ///
-  /// Defaults to [MethodChannelFlutterSmartWatch].
-  static FlutterSmartWatchPlatform get instance => _instance;
-  
-  /// Platform-specific implementations should set this with their own
-  /// platform-specific class that extends [FlutterSmartWatchPlatform] when
-  /// they register themselves.
-  static set instance(FlutterSmartWatchPlatform instance) {
-    PlatformInterface.verifyToken(instance, _token);
+  static set instance(_FlutterSmartWatchPlatform instance) {
     _instance = instance;
   }
 
-  Future<String?> getPlatformVersion() {
-    throw UnimplementedError('platformVersion() has not been implemented.');
+  Future<bool?> isSmartWatchSupported() async {
+    throw UnimplementedError(
+        "isSmartWatchSupported() has not been implemented");
+  }
+
+  Future activate() {
+    throw UnimplementedError("activate() has not been implemented");
+  }
+
+  Future<PairedDeviceInfo> getPairedDeviceInfo() {
+    throw UnimplementedError("getPairedDeviceInfo() has not been implemented");
+  }
+
+  Future<ActivateState> getActivateState() {
+    throw UnimplementedError("getActivateState() has not been implemented");
+  }
+
+  void listenToActivateStateChanged(ActiveStateChangeCallback callback) {
+    throw UnimplementedError(
+        "listenToActivateStateChanged() has not been implemented");
+  }
+
+  void listenToPairedDeviceInfoChanged(PairDeviceInfoChangeCallback callback) {
+    throw UnimplementedError(
+        "listenToPairedDeviceInfoChanged() has not been implemented");
+  }
+
+  void listenToErrorCallback(ErrorCallback callback) {
+    throw UnimplementedError(
+        "listenToErrorCallback() has not been implemented");
   }
 }
