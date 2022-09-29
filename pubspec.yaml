@@ -10,10 +10,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # json_annotation: ^4.7.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # json_serializable: ^6.4.1
+  # build_runner: ^2.2.1
 
 flutter:
   plugin:

@@ -4,6 +4,9 @@ class _MethodChannelFlutterSmartWatch extends _FlutterSmartWatchPlatform {
   final methodChannel = const MethodChannel('flutter_smart_watch');
   final callbackMethodChannel =
       const MethodChannel("flutter_smart_watch_callback");
+  ActiveStateChangeCallback? _activeStateChangeCallback;
+  PairDeviceInfoChangeCallback? _pairDeviceInfoChangeCallback;
+  ErrorCallback? _errorCallback;
 
   _MethodChannelFlutterSmartWatch() {
     callbackMethodChannel.setMethodCallHandler(_methodCallhandler);
@@ -37,10 +40,6 @@ class _MethodChannelFlutterSmartWatch extends _FlutterSmartWatchPlatform {
         }
     }
   }
-
-  ActiveStateChangeCallback? _activeStateChangeCallback = null;
-  PairDeviceInfoChangeCallback? _pairDeviceInfoChangeCallback = null;
-  ErrorCallback? _errorCallback = null;
 
   @override
   Future<bool?> isSmartWatchSupported() async {

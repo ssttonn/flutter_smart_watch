@@ -8,10 +8,8 @@ part of 'paired_device_info.dart';
 
 PairedDeviceInfo _$PairedDeviceInfoFromJson(Map<String, dynamic> json) =>
     PairedDeviceInfo(
-      json['isPaired'] as bool,
-      json['iOSDeviceNeedsUnlockAfterRebootForReachability'] as bool,
-      json['isWatchAppInstalled'] as bool,
-      json['isCompanionAppInstalled'] as bool,
-      json['isComplicationEnabled'] as bool,
-      Uri.parse(json['watchDirectoryURL'] as String),
+      json['isPaired'] as bool? ?? false,
+      json['isWatchAppInstalled'] as bool? ?? false,
+      json['isComplicationEnabled'] as bool? ?? false,
+      urlToUri(json['watchDirectoryURL'] as String?),
     );

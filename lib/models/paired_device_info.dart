@@ -2,22 +2,23 @@
 
 part 'paired_device_info.g.dart';
 
+Uri? urlToUri(String? url) {
+  return Uri.tryParse(url ?? "");
+}
+
 // @JsonSerializable(createToJson: false)
 class PairedDeviceInfo {
+  // @JsonKey(defaultValue: false)
   final bool isPaired;
-  final bool iOSDeviceNeedsUnlockAfterRebootForReachability;
+  // @JsonKey(defaultValue: false)
   final bool isWatchAppInstalled;
-  final bool isCompanionAppInstalled;
+  // @JsonKey(defaultValue: false)
   final bool isComplicationEnabled;
-  final Uri watchDirectoryURL;
+  // @JsonKey(defaultValue: null, fromJson: urlToUri)
+  final Uri? watchDirectoryURL;
 
-  PairedDeviceInfo(
-      this.isPaired,
-      this.iOSDeviceNeedsUnlockAfterRebootForReachability,
-      this.isWatchAppInstalled,
-      this.isCompanionAppInstalled,
-      this.isComplicationEnabled,
-      this.watchDirectoryURL);
+  PairedDeviceInfo(this.isPaired, this.isWatchAppInstalled,
+      this.isComplicationEnabled, this.watchDirectoryURL);
 
   factory PairedDeviceInfo.fromJson(Map<String, dynamic> json) =>
       _$PairedDeviceInfoFromJson(json);

@@ -25,18 +25,25 @@ public class SwiftFlutterSmartWatchPlugin: NSObject, FlutterPlugin {
         case "activate":
             watchSession = WCSession.default
             watchSession?.delegate = self
-            watchSession?.activate()
+            if  watchSession?.activationState != WCSessionActivationState.activated{
+                watchSession?.activate()
+            }
             result(nil)
         case "getActivateState":
-            guard watchSession != nil else{
+            guard watchSession == nil else{
                 handleFlutterError(result: result, message: "Session not found, you need to call activate() first to configure a session")
                 return
             }
             result(watchSession?.activationState.rawValue)
         case "getPairedDeviceInfo":
-            guard watchSession != nil else{
+            guard watchSession == nil else{
                 handleFlutterError(result: result, message: "Session not found, you need to call activate() first to configure a session")
                 return
+            }
+            do{
+                result(try watchSession?.toPairedDeviceJsonString())
+            }catch{
+                handleFlutterError(result: result, message: error.localizedDescription)
             }
         default:
             result(nil)
@@ -47,34 +54,52 @@ public class SwiftFlutterSmartWatchPlugin: NSObject, FlutterPlugin {
 //MARK: - WCSessionDelegate methods handle
 extension SwiftFlutterSmartWatchPlugin: WCSessionDelegate{
     public func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
-        guard error != nil else {}
+        guard error == nil else {
+            handleCallbackError(message: error!.localizedDescription)
+            return
+        }
         callbackChannel.invokeMethod("activateStateChanged", arguments: activationState.rawValue)
-        print(session.isPaired)
+        getPairedDeviceInfo(session: session)
     }
     
     public func sessionDidBecomeInactive(_ session: WCSession) {
         callbackChannel.invokeMethod("activateStateChanged", arguments: session.activationState)
+        getPairedDeviceInfo(session: session)
     }
     
     public func sessionDidDeactivate(_ session: WCSession) {
         callbackChannel.invokeMethod("activateStateChanged", arguments: session.activationState)
+        getPairedDeviceInfo(session: session)
     }
     
-    func handleFlutterError(result: FlutterResult,message: String){
+    private func getPairedDeviceInfo(session: WCSession){
+        do{
+            callbackChannel.invokeMethod("pairDeviceInfoChanged", arguments: try session.toPairedDeviceJsonString())
+        }catch{
+            handleCallbackError(message: error.localizedDescription)
+        }
+    }
+    
+    private func handleFlutterError(result: FlutterResult,message: String){
         result(FlutterError(code: "500", message: message, details: nil))
     }
     
-    func handleCallbackError(message: String){
+    private func handleCallbackError(message: String){
         callbackChannel.invokeMethod("onError", arguments: message)
     }
 }
 
 extension WCSession{
-    func toPairedDeviceJsonString()-> String{
+    func toPairedDeviceJsonString() throws -> String {
         var dict: [String: Any] = [:]
         dict["isPaired"] = self.isPaired
         dict["isComplicationEnabled"] = self.isComplicationEnabled
         dict["isWatchAppInstalled"] = self.isWatchAppInstalled
-        return
+        if let watchDirectoryUrl = self.watchDirectoryURL{
+            dict["watchDirectoryURL"] = watchDirectoryUrl.absoluteString
+        }
+        let jsonData = try JSONSerialization.data(withJSONObject: dict)
+        
+        return String(data: jsonData, encoding: .utf8) ?? ""
     }
 }
