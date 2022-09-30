@@ -6,6 +6,7 @@ class _MethodChannelFlutterSmartWatch extends _FlutterSmartWatchPlatform {
       const MethodChannel("flutter_smart_watch_callback");
   ActiveStateChangeCallback? _activeStateChangeCallback;
   PairDeviceInfoChangeCallback? _pairDeviceInfoChangeCallback;
+  MessageReceivedCallback? _messageReceivedCallback;
   ErrorCallback? _errorCallback;
 
   _MethodChannelFlutterSmartWatch() {
@@ -33,11 +34,25 @@ class _MethodChannelFlutterSmartWatch extends _FlutterSmartWatchPlatform {
           }
         }
         break;
+      case "messageReceived":
+        if (call.arguments != null) {
+          try {
+            Map<String, dynamic> argumentsInJson = jsonDecode(call.arguments);
+            Message message = argumentsInJson["message"];
+            _messageReceivedCallback?.call(message);
+          } catch (e) {
+            _errorCallback?.call(CurrentError(
+                message: "Error when parsing data, please try again later",
+                statusCode: 404));
+          }
+        }
+        break;
       case "onError":
         if (call.arguments != null) {
           _errorCallback
               ?.call(CurrentError(message: call.arguments, statusCode: 0));
         }
+        break;
     }
   }
 
@@ -65,6 +80,11 @@ class _MethodChannelFlutterSmartWatch extends _FlutterSmartWatchPlatform {
   }
 
   @override
+  Future sendMessage(Message message) {
+    return methodChannel.invokeMethod("sendMessage", message);
+  }
+
+  @override
   void listenToActivateStateChanged(ActiveStateChangeCallback callback) {
     _activeStateChangeCallback = callback;
   }
@@ -72,6 +92,11 @@ class _MethodChannelFlutterSmartWatch extends _FlutterSmartWatchPlatform {
   @override
   void listenToPairedDeviceInfoChanged(PairDeviceInfoChangeCallback callback) {
     _pairDeviceInfoChangeCallback = callback;
+  }
+
+  @override
+  void listenToMessageReceiveEvent(MessageReceivedCallback callback) {
+    _messageReceivedCallback = callback;
   }
 
   @override

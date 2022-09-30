@@ -30,13 +30,13 @@ public class SwiftFlutterSmartWatchPlugin: NSObject, FlutterPlugin {
             }
             result(nil)
         case "getActivateState":
-            guard watchSession == nil else{
+            guard watchSession != nil else{
                 handleFlutterError(result: result, message: "Session not found, you need to call activate() first to configure a session")
                 return
             }
             result(watchSession?.activationState.rawValue)
         case "getPairedDeviceInfo":
-            guard watchSession == nil else{
+            guard watchSession != nil else{
                 handleFlutterError(result: result, message: "Session not found, you need to call activate() first to configure a session")
                 return
             }
@@ -45,6 +45,15 @@ public class SwiftFlutterSmartWatchPlugin: NSObject, FlutterPlugin {
             }catch{
                 handleFlutterError(result: result, message: error.localizedDescription)
             }
+        case "sendMessage":
+            guard watchSession != nil else{
+                handleFlutterError(result: result, message: "Session not found, you need to call activate() first to configure a session")
+                return
+            }
+            if let arguments = call.arguments as? [String: Any]{
+                watchSession?.sendMessage(arguments, replyHandler: nil)
+            }
+            
         default:
             result(nil)
         }
@@ -70,6 +79,10 @@ extension SwiftFlutterSmartWatchPlugin: WCSessionDelegate{
     public func sessionDidDeactivate(_ session: WCSession) {
         callbackChannel.invokeMethod("activateStateChanged", arguments: session.activationState)
         getPairedDeviceInfo(session: session)
+    }
+    
+    public func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
+        print(message)
     }
     
     private func getPairedDeviceInfo(session: WCSession){

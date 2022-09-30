@@ -13,12 +13,16 @@ part 'flutter_smart_watch_method_channel.dart';
 part 'flutter_smart_watch_platform_interface.dart';
 part "enums/activate_state.dart";
 
+typedef Message = Map<String, dynamic>;
+
 typedef ActiveStateChangeCallback = Function(ActivateState activateState);
 
 typedef PairDeviceInfoChangeCallback = Function(
     PairedDeviceInfo pairedDeviceInfo);
 
 typedef ErrorCallback = Function(CurrentError error);
+
+typedef MessageReceivedCallback = Function(Message message);
 
 class FlutterSmartWatch {
   Future configure() async {
@@ -34,6 +38,10 @@ class FlutterSmartWatch {
     return _FlutterSmartWatchPlatform.instance.activate();
   }
 
+  Future sendMessage(Message message) {
+    return _FlutterSmartWatchPlatform.instance.sendMessage(message);
+  }
+
   void listenToActivateStateChanged(ActiveStateChangeCallback callback) {
     _FlutterSmartWatchPlatform.instance.listenToActivateStateChanged(callback);
   }
@@ -41,6 +49,10 @@ class FlutterSmartWatch {
   void listenToPairedDeviceInfoChanged(PairDeviceInfoChangeCallback callback) {
     _FlutterSmartWatchPlatform.instance
         .listenToPairedDeviceInfoChanged(callback);
+  }
+
+  void onMessageReceived(MessageReceivedCallback callback) {
+    _FlutterSmartWatchPlatform.instance.listenToMessageReceiveEvent(callback);
   }
 
   void listenToError(ErrorCallback callback) {
