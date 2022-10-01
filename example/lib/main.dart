@@ -28,6 +28,13 @@ class _MyAppState extends State<MyApp> {
         .listenToPairedDeviceInfoChanged((pairedDeviceInfo) {
       print(pairedDeviceInfo);
     });
+    _flutterSmartWatchPlugin.onMessageReceived((message) {
+      if (message.containsKey("count")) {
+        setState(() {
+          count = message["count"] as int? ?? 0;
+        });
+      }
+    });
     _flutterSmartWatchPlugin.listenToError((error) {
       print(error.message);
     });

@@ -1,14 +1,8 @@
 part of flutter_smart_watch;
 
 abstract class _FlutterSmartWatchPlatform {
-  static _FlutterSmartWatchPlatform _instance =
+  static _FlutterSmartWatchPlatform instance =
       _MethodChannelFlutterSmartWatch();
-
-  static _FlutterSmartWatchPlatform get instance => _instance;
-
-  static set instance(_FlutterSmartWatchPlatform instance) {
-    _instance = instance;
-  }
 
   Future<bool?> isSmartWatchSupported() async {
     throw UnimplementedError(

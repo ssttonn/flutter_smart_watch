@@ -67,6 +67,8 @@ extension SwiftFlutterSmartWatchPlugin: WCSessionDelegate{
             handleCallbackError(message: error!.localizedDescription)
             return
         }
+        print(session.isReachable)
+        print(activationState == WCSessionActivationState.activated)
         callbackChannel.invokeMethod("activateStateChanged", arguments: activationState.rawValue)
         getPairedDeviceInfo(session: session)
     }
@@ -82,7 +84,7 @@ extension SwiftFlutterSmartWatchPlugin: WCSessionDelegate{
     }
     
     public func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
-        print(message)
+        callbackChannel.invokeMethod("messageReceived", arguments: message)
     }
     
     private func getPairedDeviceInfo(session: WCSession){

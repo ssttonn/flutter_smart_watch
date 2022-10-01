@@ -37,13 +37,12 @@ class _MethodChannelFlutterSmartWatch extends _FlutterSmartWatchPlatform {
       case "messageReceived":
         if (call.arguments != null) {
           try {
-            Map<String, dynamic> argumentsInJson = jsonDecode(call.arguments);
-            Message message = argumentsInJson["message"];
+            Message message = json.decode(json.encode(call.arguments))
+                as Map<String, dynamic>;
             _messageReceivedCallback?.call(message);
           } catch (e) {
-            _errorCallback?.call(CurrentError(
-                message: "Error when parsing data, please try again later",
-                statusCode: 404));
+            _errorCallback
+                ?.call(CurrentError(message: e.toString(), statusCode: 404));
           }
         }
         break;
