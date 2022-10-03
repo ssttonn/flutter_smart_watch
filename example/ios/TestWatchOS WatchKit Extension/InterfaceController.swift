@@ -29,33 +29,64 @@ class InterfaceController: WKInterfaceController {
     override func didDeactivate() {
         // This method is called when watch view controller is no longer visible
     }
-
-  
+    
+    
     @IBAction func onIncreased() {
         print("Increase")
         count += 1
         counterLabel.setText(String(count))
-        if watchSession != nil && watchSession!.isReachable{
-            watchSession?.sendMessage(["count": count], replyHandler: nil)
-        }
+        sendCount()
     }
     
     @IBAction func onDecreased() {
         print("Decrease")
         count -= 1
         counterLabel.setText(String(count))
-        if watchSession != nil && watchSession!.isReachable{
+        sendCount()
+    }
+    
+    func sendCount(){
+        guard watchSession != nil else {
+            return
+        }
+        if watchSession!.isReachable{
             watchSession?.sendMessage(["count": count], replyHandler: nil)
+        }else{
+            var currentContext = watchSession?.applicationContext ?? [:]
+            currentContext["count"] = count
+            do{
+                try watchSession?.updateApplicationContext(currentContext)
+            }catch{
+                print(error.localizedDescription)
+            }
         }
     }
 }
 
 extension InterfaceController: WCSessionDelegate{
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+        if activationState == WCSessionActivationState.activated{
+            print(session.applicationContext)
+        }
     }
     
     func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
         if let currentCount = message["count"] as? Int{
+            count = currentCount
+            counterLabel.setText(String(currentCount))
+        }
+    }
+    
+    func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
+        if let currentCount = message["count"] as? Int{
+            count = currentCount
+            counterLabel.setText(String(currentCount))
+        }
+        replyHandler(["state": true])
+    }
+    
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
+        if let currentCount = applicationContext["count"] as? Int{
             count = currentCount
             counterLabel.setText(String(currentCount))
         }

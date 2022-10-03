@@ -2,13 +2,14 @@ import Flutter
 import UIKit
 import WatchConnectivity
 
+typealias ReplyHandler = ([String: Any]) -> Void
+
 public class SwiftFlutterSmartWatchPlugin: NSObject, FlutterPlugin {
     private var watchSession: WCSession?
     private var callbackChannel: FlutterMethodChannel
     
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "flutter_smart_watch", binaryMessenger: registrar.messenger())
-        
         let instance = SwiftFlutterSmartWatchPlugin(callbackChannel: FlutterMethodChannel(name: "flutter_smart_watch_callback", binaryMessenger: registrar.messenger()))
         registrar.addMethodCallDelegate(instance, channel: channel)
     }
@@ -30,45 +31,84 @@ public class SwiftFlutterSmartWatchPlugin: NSObject, FlutterPlugin {
             }
             result(nil)
         case "getActivateState":
-            guard watchSession != nil else{
-                handleFlutterError(result: result, message: "Session not found, you need to call activate() first to configure a session")
-                return
-            }
+            checkForWatchSession(result: result)
             result(watchSession?.activationState.rawValue)
         case "getPairedDeviceInfo":
-            guard watchSession != nil else{
-                handleFlutterError(result: result, message: "Session not found, you need to call activate() first to configure a session")
-                return
-            }
+            checkForWatchSession(result: result)
             do{
                 result(try watchSession?.toPairedDeviceJsonString())
             }catch{
                 handleFlutterError(result: result, message: error.localizedDescription)
             }
+        case "getReachability":
+            checkForWatchSession(result: result)
+            result(watchSession!.isReachable)
         case "sendMessage":
-            guard watchSession != nil else{
-                handleFlutterError(result: result, message: "Session not found, you need to call activate() first to configure a session")
-                return
-            }
+            checkForWatchSession(result: result)
             if let arguments = call.arguments as? [String: Any]{
-                watchSession?.sendMessage(arguments, replyHandler: nil)
+                checkSessionReachability(result: result)
+                if let message = arguments["message"] as? [String: Any]{
+                    var handler: ReplyHandler? = nil
+                    if let replyHandlerId = arguments["replyHandlerId"] as? String{
+                        handler = { replyHandler in
+                            var arguments: [String: Any] = [:]
+                            arguments["replyMessage"] = replyHandler
+                            arguments["replyHandlerId"] = replyHandlerId
+                            self.callbackChannel.invokeMethod("onMessageReplied", arguments: arguments)
+                        }
+                    }
+                    watchSession?.sendMessage(message, replyHandler: handler){ error in
+                        self.handleFlutterError(result: result, message: error.localizedDescription)
+                    }
+                }
+               
             }
-            
+            result(nil)
+        case "getApplicationContext":
+            checkForWatchSession(result: result)
+            result(watchSession?.applicationContext)
+        case "updateApplicationContext":
+            checkForWatchSession(result: result)
+            if let applicationContext = call.arguments as? [String: Any]{
+                do{
+                    try watchSession?.updateApplicationContext(applicationContext)
+                }catch{
+                    handleFlutterError(result: result, message: error.localizedDescription)
+                }
+            }
+            result(nil)
         default:
             result(nil)
+        }
+    }
+    
+    private func checkForWatchSession(result: FlutterResult){
+        guard watchSession != nil else{
+            handleFlutterError(result: result, message: "Session not found, you need to call activate() first to configure a session")
+            return
+        }
+    }
+    
+    private func checkSessionReachability(result: FlutterResult){
+        if (!watchSession!.isReachable){
+            handleFlutterError(result: result, message: "Session is not reachable, your companion app is either disconnected or is in offline mode")
+            return
         }
     }
 }
 
 //MARK: - WCSessionDelegate methods handle
 extension SwiftFlutterSmartWatchPlugin: WCSessionDelegate{
+    public func sessionReachabilityDidChange(_ session: WCSession) {
+        callbackChannel.invokeMethod("reachabilityChanged", arguments: session.isReachable)
+    }
+    
     public func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         guard error == nil else {
             handleCallbackError(message: error!.localizedDescription)
             return
         }
-        print(session.isReachable)
-        print(activationState == WCSessionActivationState.activated)
+        callbackChannel.invokeMethod("reachabilityChanged", arguments: session.isReachable)
         callbackChannel.invokeMethod("activateStateChanged", arguments: activationState.rawValue)
         getPairedDeviceInfo(session: session)
     }
@@ -85,6 +125,10 @@ extension SwiftFlutterSmartWatchPlugin: WCSessionDelegate{
     
     public func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
         callbackChannel.invokeMethod("messageReceived", arguments: message)
+    }
+    
+    public func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
+        callbackChannel.invokeMethod("onApplicationContextReceived", arguments: applicationContext)
     }
     
     private func getPairedDeviceInfo(session: WCSession){

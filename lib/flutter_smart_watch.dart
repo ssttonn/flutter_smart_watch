@@ -3,6 +3,7 @@ library flutter_smart_watch;
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_smart_watch/helpers/utils.dart';
 import 'package:flutter_smart_watch/models/error.dart';
 
 import 'models/paired_device_info.dart';
@@ -15,14 +16,23 @@ part "enums/activate_state.dart";
 
 typedef Message = Map<String, dynamic>;
 
+typedef ApplicationContext = Map<String, dynamic>;
+
 typedef ActiveStateChangeCallback = Function(ActivateState activateState);
 
 typedef PairDeviceInfoChangeCallback = Function(
     PairedDeviceInfo pairedDeviceInfo);
 
+typedef ReachabilityChangeCallback = Function(bool);
+
 typedef ErrorCallback = Function(CurrentError error);
 
 typedef MessageReceivedCallback = Function(Message message);
+
+typedef MessageReplyHandler = MessageReceivedCallback;
+
+typedef ApplicationContextReceiveCallback = Function(
+    ApplicationContext context);
 
 class FlutterSmartWatch {
   Future configure() async {
@@ -38,8 +48,30 @@ class FlutterSmartWatch {
     return _FlutterSmartWatchPlatform.instance.activate();
   }
 
-  Future sendMessage(Message message) {
-    return _FlutterSmartWatchPlatform.instance.sendMessage(message);
+  Future sendMessage(Message message, {MessageReplyHandler? replyHandler}) {
+    return _FlutterSmartWatchPlatform.instance
+        .sendMessage(message, replyHandler: replyHandler);
+  }
+
+  Future<ApplicationContext> getCurrentApplicationContext() {
+    return _FlutterSmartWatchPlatform.instance.getCurrentApplicationContext();
+  }
+
+  Future updateApplicationContext(ApplicationContext context) {
+    return _FlutterSmartWatchPlatform.instance
+        .updateApplicationContext(context);
+  }
+
+  Future<PairedDeviceInfo> getPairedDeviceInfo() {
+    return _FlutterSmartWatchPlatform.instance.getPairedDeviceInfo();
+  }
+
+  Future<ActivateState> getActivateState() {
+    return _FlutterSmartWatchPlatform.instance.getActivateState();
+  }
+
+  Future<bool> getReachability() {
+    return _FlutterSmartWatchPlatform.instance.getReachability();
   }
 
   void listenToActivateStateChanged(ActiveStateChangeCallback callback) {
@@ -53,6 +85,15 @@ class FlutterSmartWatch {
 
   void onMessageReceived(MessageReceivedCallback callback) {
     _FlutterSmartWatchPlatform.instance.listenToMessageReceiveEvent(callback);
+  }
+
+  void onReachabilityChanged(ReachabilityChangeCallback callback) {
+    _FlutterSmartWatchPlatform.instance.listenToReachability(callback);
+  }
+
+  void onApplicationContextReceived(
+      ApplicationContextReceiveCallback callback) {
+    _FlutterSmartWatchPlatform.instance.listenToApplicationContext(callback);
   }
 
   void listenToError(ErrorCallback callback) {

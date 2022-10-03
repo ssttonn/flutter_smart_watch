@@ -21,8 +21,22 @@ abstract class _FlutterSmartWatchPlatform {
     throw UnimplementedError("getActivateState() has not been implemented");
   }
 
-  Future sendMessage(Message message) {
+  Future<bool> getReachability() {
+    throw UnimplementedError("getReachability() has not been implemented");
+  }
+
+  Future<ApplicationContext> getCurrentApplicationContext() {
+    throw UnimplementedError(
+        "getCurrentApplicationContext() has not been implemented");
+  }
+
+  Future sendMessage(Message message, {MessageReplyHandler? replyHandler}) {
     throw UnimplementedError("sendMessage() has not been implemented");
+  }
+
+  Future updateApplicationContext(Map<String, dynamic> applicationContext) {
+    throw UnimplementedError(
+        "updateApplicationContext() has not been implemented");
   }
 
   void listenToActivateStateChanged(ActiveStateChangeCallback callback) {
@@ -42,6 +56,15 @@ abstract class _FlutterSmartWatchPlatform {
 
   void listenToMessageReceiveEvent(MessageReceivedCallback callback) {
     throw UnimplementedError(
-        "MessageReceivedCallback() has not been implemented");
+        "listenToMessageReceiveEvent() has not been implemented");
+  }
+
+  void listenToApplicationContext(ApplicationContextReceiveCallback callback) {
+    throw UnimplementedError(
+        "listenToApplicationContext() has not been implemented");
+  }
+
+  void listenToReachability(ReachabilityChangeCallback callback) {
+    throw UnimplementedError("listenToReachability() has not been implemented");
   }
 }

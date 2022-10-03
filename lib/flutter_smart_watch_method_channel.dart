@@ -7,7 +7,10 @@ class _MethodChannelFlutterSmartWatch extends _FlutterSmartWatchPlatform {
   ActiveStateChangeCallback? _activeStateChangeCallback;
   PairDeviceInfoChangeCallback? _pairDeviceInfoChangeCallback;
   MessageReceivedCallback? _messageReceivedCallback;
+  ReachabilityChangeCallback? _reachabilityChangeCallback;
+  ApplicationContextReceiveCallback? _applicationContextReceiveCallback;
   ErrorCallback? _errorCallback;
+  Map<String, MessageReplyHandler> _handlers = new Map();
 
   _MethodChannelFlutterSmartWatch() {
     callbackMethodChannel.setMethodCallHandler(_methodCallhandler);
@@ -37,13 +40,38 @@ class _MethodChannelFlutterSmartWatch extends _FlutterSmartWatchPlatform {
       case "messageReceived":
         if (call.arguments != null) {
           try {
-            Message message = json.decode(json.encode(call.arguments))
-                as Map<String, dynamic>;
+            Message message =
+                json.decode(json.encode(call.arguments)) as Message;
             _messageReceivedCallback?.call(message);
           } catch (e) {
             _errorCallback
                 ?.call(CurrentError(message: e.toString(), statusCode: 404));
           }
+        }
+        break;
+      case "reachabilityChanged":
+        if (call.arguments != null && call.arguments is bool) {
+          _reachabilityChangeCallback?.call(call.arguments);
+        }
+        break;
+      case "onMessageReplied":
+        var arguments = call.arguments;
+        if (arguments != null) {
+          Map? _replyMessage = arguments["replyMessage"] as Map?;
+          String? _replyMessageId = arguments["replyHandlerId"] as String?;
+          if (_replyMessage != null && _replyMessageId != null) {
+            _handlers[_replyMessageId]?.call(_replyMessage
+                .map((key, value) => MapEntry(key.toString(), value)));
+            _handlers.remove(_replyMessageId);
+          }
+        }
+        break;
+      case "onApplicationContextReceived":
+        var arguments = call.arguments;
+        if (arguments != null && arguments is Map) {
+          var applicationContext =
+              arguments.map((key, value) => MapEntry(key.toString(), value));
+          _applicationContextReceiveCallback?.call(applicationContext);
         }
         break;
       case "onError":
@@ -79,8 +107,36 @@ class _MethodChannelFlutterSmartWatch extends _FlutterSmartWatchPlatform {
   }
 
   @override
-  Future sendMessage(Message message) {
-    return methodChannel.invokeMethod("sendMessage", message);
+  Future<bool> getReachability() async {
+    bool isReachable = await methodChannel.invokeMethod("getReachability");
+    return isReachable;
+  }
+
+  @override
+  Future<ApplicationContext> getCurrentApplicationContext() async {
+    Map _rawContext = await methodChannel.invokeMethod("getApplicationContext");
+    Map<String, dynamic> _applicationContext =
+        _rawContext.map((key, value) => MapEntry(key.toString(), value));
+    return _applicationContext;
+  }
+
+  @override
+  Future sendMessage(Message message, {MessageReplyHandler? replyHandler}) {
+    String? handlerId;
+    if (replyHandler != null) {
+      handlerId = getRandomString(20);
+      _handlers[handlerId] = replyHandler;
+    }
+    return methodChannel.invokeMethod("sendMessage", {
+      "message": message,
+      if (handlerId != null) "replyHandlerId": handlerId
+    });
+  }
+
+  @override
+  Future updateApplicationContext(Map<String, dynamic> applicationContext) {
+    return methodChannel.invokeMethod(
+        "updateApplicationContext", applicationContext);
   }
 
   @override
@@ -96,6 +152,16 @@ class _MethodChannelFlutterSmartWatch extends _FlutterSmartWatchPlatform {
   @override
   void listenToMessageReceiveEvent(MessageReceivedCallback callback) {
     _messageReceivedCallback = callback;
+  }
+
+  @override
+  void listenToReachability(ReachabilityChangeCallback callback) {
+    _reachabilityChangeCallback = callback;
+  }
+
+  @override
+  void listenToApplicationContext(ApplicationContextReceiveCallback callback) {
+    _applicationContextReceiveCallback = callback;
   }
 
   @override
