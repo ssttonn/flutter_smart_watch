@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder.WatchKit.Storyboard" version="3.0" toolsVersion="21225" targetRuntime="watchKit" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" colorMatched="YES" initialViewController="AgC-eL-Hgc">
+<document type="com.apple.InterfaceBuilder.WatchKit.Storyboard" version="3.0" toolsVersion="20037" targetRuntime="watchKit" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" colorMatched="YES" initialViewController="AgC-eL-Hgc">
     <device id="watch38"/>
     <dependencies>
         <deployment identifier="watchOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBWatchKitPlugin" version="21040"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="20020"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBWatchKitPlugin" version="20006"/>
     </dependencies>
     <scenes>
         <!--Interface Controller-->
@@ -14,6 +15,7 @@
                         <label alignment="center" text="0" textAlignment="center" baselineAdjustment="alignCenters" id="tOj-0U-jwt">
                             <fontDescription key="font" style="UICTFontTextStyleTitle0"/>
                         </label>
+                        <picker height="100" alignment="left" id="CtB-Xo-Pi1"/>
                         <button width="1" alignment="left" title="Increase" id="Ogf-fz-G3E">
                             <connections>
                                 <action selector="onIncreased" destination="AgC-eL-Hgc" id="eU7-gU-aRY"/>
@@ -27,6 +29,7 @@
                     </items>
                     <connections>
                         <outlet property="counterLabel" destination="tOj-0U-jwt" id="jFY-IK-SkA"/>
+                        <outlet property="optionPicker" destination="CtB-Xo-Pi1" id="UNV-EQ-yGY"/>
                     </connections>
                 </controller>
             </objects>

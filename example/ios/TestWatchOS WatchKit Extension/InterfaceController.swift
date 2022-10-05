@@ -10,13 +10,22 @@ import Foundation
 import WatchConnectivity
 
 class InterfaceController: WKInterfaceController {
+    @IBOutlet weak var optionPicker: WKInterfacePicker!
     @IBOutlet weak var counterLabel: WKInterfaceLabel!
     private var watchSession: WCSession?
-    
+    var itemTitles: [String] = ["Message", "Application Context", "User Info"]
+    var pickedItem: WKPickerItem? = nil
     private var count: Int = 0
     
     override func awake(withContext context: Any?) {
         // Configure interface objects here.
+        let pickerItems = itemTitles.map{ title -> WKPickerItem in
+            let pickerItem = WKPickerItem()
+            pickerItem.title = title
+            return pickerItem
+        }
+        pickedItem = pickerItems.first
+        optionPicker.setItems(pickerItems)
         watchSession = WCSession.default
         watchSession?.delegate = self
         watchSession?.activate()
@@ -66,7 +75,10 @@ class InterfaceController: WKInterfaceController {
 extension InterfaceController: WCSessionDelegate{
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         if activationState == WCSessionActivationState.activated{
-            print(session.applicationContext)
+            if let currentCount = session.receivedApplicationContext["count"] as? Int{
+                count = currentCount
+                counterLabel.setText(String(currentCount))
+            }
         }
     }
     

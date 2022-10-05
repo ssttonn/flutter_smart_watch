@@ -16,51 +16,56 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  final _flutterSmartWatchPlugin = FlutterSmartWatch();
+  FlutterSmartWatch _flutterSmartWatchPlugin = FlutterSmartWatch.getInstance();
   int count = 0;
   bool isReachable = false;
 
   @override
   void initState() {
     super.initState();
-    _flutterSmartWatchPlugin.listenToActivateStateChanged((activateState) {
-      print(activateState);
+    _flutterSmartWatchPlugin.activationStateStream.listen((activationState) {
+      if (activationState == ActivationState.activated) {
+        _flutterSmartWatchPlugin.getLatestApplicationContext().then((context) {
+          if (context.received.containsKey("count")) {
+            setState(() {
+              count = context.received["count"] as int? ?? 0;
+            });
+          } else if (context.sent.containsKey("count")) {
+            setState(() {
+              count = context.sent["count"] as int? ?? 0;
+            });
+          }
+        });
+      }
     });
-    _flutterSmartWatchPlugin
-        .listenToPairedDeviceInfoChanged((pairedDeviceInfo) {
+    _flutterSmartWatchPlugin.pairedDeviceInfoStream.listen((pairedDeviceInfo) {
       print(pairedDeviceInfo);
     });
-    _flutterSmartWatchPlugin.onMessageReceived((message) {
+    _flutterSmartWatchPlugin.messageStream.listen((message) {
       if (message.containsKey("count")) {
         setState(() {
           count = message["count"] as int? ?? 0;
         });
       }
     });
-    _flutterSmartWatchPlugin.onReachabilityChanged((isReachable) {
+    _flutterSmartWatchPlugin.reachabilityStream.listen((isReachable) {
       setState(() {
         this.isReachable = isReachable;
       });
     });
-    _flutterSmartWatchPlugin.onApplicationContextReceived((context) {
-      if (context.containsKey("count")) {
+    _flutterSmartWatchPlugin.applicationContextStream
+        .listen((applicationContext) {
+      if (applicationContext.received.containsKey("count")) {
         setState(() {
-          count = context["count"] as int? ?? 0;
+          count = applicationContext.received["count"] as int? ?? 0;
         });
       }
     });
-    _flutterSmartWatchPlugin.listenToError((error) {
+    _flutterSmartWatchPlugin.userInfoStream.listen((userInfo) {});
+    _flutterSmartWatchPlugin.errorStream.listen((error) {
       print(error.message);
     });
-    _flutterSmartWatchPlugin.configure().then((value) {
-      _flutterSmartWatchPlugin.getCurrentApplicationContext().then((context) {
-        if (context.containsKey("count")) {
-          setState(() {
-            count = context["count"] as int? ?? 0;
-          });
-        }
-      });
-    });
+    _flutterSmartWatchPlugin.configure();
   }
 
   Widget _iconButton(IconData iconData, VoidCallback onPressed) {
@@ -77,6 +82,12 @@ class _MyAppState extends State<MyApp> {
   }
 
   @override
+  void dispose() {
+    super.dispose();
+    _flutterSmartWatchPlugin.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return MaterialApp(
@@ -84,37 +95,47 @@ class _MyAppState extends State<MyApp> {
         appBar: AppBar(
           title: const Text('Plugin example app'),
         ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _iconButton(Icons.remove, () async {
-                    setState(() {
-                      count--;
-                    });
-                    _sendMessage();
-                  }),
-                  SizedBox(width: 10),
-                  Text(count.toString(),
-                      style: theme.textTheme.headline5
-                          ?.copyWith(color: theme.colorScheme.primary)),
-                  SizedBox(width: 10),
-                  _iconButton(Icons.add, () async {
-                    setState(() {
-                      count++;
-                    });
-                    _sendMessage();
-                  })
-                ],
-              ),
-              SizedBox(height: 10),
-              Text("isReachable: ${this.isReachable}"),
-            ],
-          ),
-        ),
+        body: StreamBuilder<ActivationState>(
+            stream: _flutterSmartWatchPlugin.activationStateStream,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData ||
+                  snapshot.data != ActivationState.activated) {
+                return Container(
+                  child: Text("Your session isn't activated"),
+                );
+              }
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _iconButton(Icons.remove, () async {
+                          setState(() {
+                            count--;
+                          });
+                          _sendMessage();
+                        }),
+                        SizedBox(width: 10),
+                        Text(count.toString(),
+                            style: theme.textTheme.headline5
+                                ?.copyWith(color: theme.colorScheme.primary)),
+                        SizedBox(width: 10),
+                        _iconButton(Icons.add, () async {
+                          setState(() {
+                            count++;
+                          });
+                          _sendMessage();
+                        })
+                      ],
+                    ),
+                    SizedBox(height: 10),
+                    Text("isReachable: ${this.isReachable}"),
+                  ],
+                ),
+              );
+            }),
       ),
     );
   }

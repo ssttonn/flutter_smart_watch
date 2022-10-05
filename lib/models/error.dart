@@ -1,5 +1,5 @@
-class CurrentError {
+class MainError {
   final String message;
   final int statusCode;
-  CurrentError({required this.message, required this.statusCode});
+  MainError({required this.message, required this.statusCode});
 }

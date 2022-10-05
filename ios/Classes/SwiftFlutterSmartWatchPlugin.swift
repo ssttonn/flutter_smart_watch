@@ -28,6 +28,8 @@ public class SwiftFlutterSmartWatchPlugin: NSObject, FlutterPlugin {
             watchSession?.delegate = self
             if  watchSession?.activationState != WCSessionActivationState.activated{
                 watchSession?.activate()
+            }else{
+                callbackChannel.invokeMethod("activateStateChanged", arguments: WCSessionActivationState.activated.rawValue)
             }
             result(nil)
         case "getActivateState":
@@ -64,14 +66,14 @@ public class SwiftFlutterSmartWatchPlugin: NSObject, FlutterPlugin {
                
             }
             result(nil)
-        case "getApplicationContext":
+        case "getLatestApplicationContext":
             checkForWatchSession(result: result)
-            result(watchSession?.applicationContext)
+            result(getApplicationContext(session: watchSession!))
         case "updateApplicationContext":
             checkForWatchSession(result: result)
-            if let applicationContext = call.arguments as? [String: Any]{
+            if let sentApplicationContext = call.arguments as? [String: Any]{
                 do{
-                    try watchSession?.updateApplicationContext(applicationContext)
+                    try watchSession?.updateApplicationContext(sentApplicationContext)
                 }catch{
                     handleFlutterError(result: result, message: error.localizedDescription)
                 }
@@ -128,15 +130,40 @@ extension SwiftFlutterSmartWatchPlugin: WCSessionDelegate{
     }
     
     public func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
-        callbackChannel.invokeMethod("onApplicationContextReceived", arguments: applicationContext)
+        callbackChannel.invokeMethod("onApplicationContextReceived", arguments: getApplicationContext(session:session))
     }
     
+    public func sessionWatchStateDidChange(_ session: WCSession) {
+        do{
+            callbackChannel.invokeMethod("pairDeviceInfoChanged", arguments: try session.toPairedDeviceJsonString())
+        }catch{
+            handleCallbackError(message: error.localizedDescription)
+        }
+    }
+    
+    public func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any] = [:]) {
+        
+    }
+    
+    public func session(_ session: WCSession, didFinish userInfoTransfer: WCSessionUserInfoTransfer, error: Error?) {
+    }
+}
+
+//MARK: - Helper methods
+extension SwiftFlutterSmartWatchPlugin{
     private func getPairedDeviceInfo(session: WCSession){
         do{
             callbackChannel.invokeMethod("pairDeviceInfoChanged", arguments: try session.toPairedDeviceJsonString())
         }catch{
             handleCallbackError(message: error.localizedDescription)
         }
+    }
+    
+    private func getApplicationContext(session: WCSession)-> [String: [String: Any]]{
+        var applicationContextDict: [String: [String: Any]] = [:]
+        applicationContextDict["sent"] = session.applicationContext
+        applicationContextDict["received"] = session.receivedApplicationContext
+        return applicationContextDict
     }
     
     private func handleFlutterError(result: FlutterResult,message: String){

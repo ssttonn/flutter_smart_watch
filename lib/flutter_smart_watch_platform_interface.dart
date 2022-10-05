@@ -17,7 +17,7 @@ abstract class _FlutterSmartWatchPlatform {
     throw UnimplementedError("getPairedDeviceInfo() has not been implemented");
   }
 
-  Future<ActivateState> getActivateState() {
+  Future<ActivationState> getActivateState() {
     throw UnimplementedError("getActivateState() has not been implemented");
   }
 
@@ -25,46 +25,17 @@ abstract class _FlutterSmartWatchPlatform {
     throw UnimplementedError("getReachability() has not been implemented");
   }
 
-  Future<ApplicationContext> getCurrentApplicationContext() {
+  Future<ApplicationContext> getLatestApplicationContext() {
     throw UnimplementedError(
-        "getCurrentApplicationContext() has not been implemented");
+        "getLatestSentApplicationContext() has not been implemented");
   }
 
-  Future sendMessage(Message message, {MessageReplyHandler? replyHandler}) {
+  Future sendMessage(Message message, {String? handlerId}) {
     throw UnimplementedError("sendMessage() has not been implemented");
   }
 
   Future updateApplicationContext(Map<String, dynamic> applicationContext) {
     throw UnimplementedError(
         "updateApplicationContext() has not been implemented");
-  }
-
-  void listenToActivateStateChanged(ActiveStateChangeCallback callback) {
-    throw UnimplementedError(
-        "listenToActivateStateChanged() has not been implemented");
-  }
-
-  void listenToPairedDeviceInfoChanged(PairDeviceInfoChangeCallback callback) {
-    throw UnimplementedError(
-        "listenToPairedDeviceInfoChanged() has not been implemented");
-  }
-
-  void listenToErrorCallback(ErrorCallback callback) {
-    throw UnimplementedError(
-        "listenToErrorCallback() has not been implemented");
-  }
-
-  void listenToMessageReceiveEvent(MessageReceivedCallback callback) {
-    throw UnimplementedError(
-        "listenToMessageReceiveEvent() has not been implemented");
-  }
-
-  void listenToApplicationContext(ApplicationContextReceiveCallback callback) {
-    throw UnimplementedError(
-        "listenToApplicationContext() has not been implemented");
-  }
-
-  void listenToReachability(ReachabilityChangeCallback callback) {
-    throw UnimplementedError("listenToReachability() has not been implemented");
   }
 }
