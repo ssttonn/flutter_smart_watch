@@ -15,7 +15,6 @@
                         <label alignment="center" text="0" textAlignment="center" baselineAdjustment="alignCenters" id="tOj-0U-jwt">
                             <fontDescription key="font" style="UICTFontTextStyleTitle0"/>
                         </label>
-                        <picker height="100" alignment="left" id="CtB-Xo-Pi1"/>
                         <button width="1" alignment="left" title="Increase" id="Ogf-fz-G3E">
                             <connections>
                                 <action selector="onIncreased" destination="AgC-eL-Hgc" id="eU7-gU-aRY"/>
@@ -26,6 +25,7 @@
                                 <action selector="onDecreased" destination="AgC-eL-Hgc" id="TW5-pO-sXn"/>
                             </connections>
                         </button>
+                        <picker height="100" alignment="left" id="CtB-Xo-Pi1"/>
                     </items>
                     <connections>
                         <outlet property="counterLabel" destination="tOj-0U-jwt" id="jFY-IK-SkA"/>
@@ -33,7 +33,7 @@
                     </connections>
                 </controller>
             </objects>
-            <point key="canvasLocation" x="91" y="-59"/>
+            <point key="canvasLocation" x="91" y="-59.5"/>
         </scene>
     </scenes>
 </document>

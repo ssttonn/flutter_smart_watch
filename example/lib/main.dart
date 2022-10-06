@@ -19,35 +19,46 @@ class _MyAppState extends State<MyApp> {
   FlutterSmartWatch _flutterSmartWatchPlugin = FlutterSmartWatch.getInstance();
   int count = 0;
   bool isReachable = false;
+  Map<String, dynamic> _applicationContext = new Map();
+  List<String> _dataTransferTypes = [
+    "Message",
+    "Application Context",
+    "User Info"
+  ];
+  ActivationState _activationState = ActivationState.notActivated;
+
+  String _selectedTransferType = "";
+
+  bool isAbleToSendData(String type) {
+    return (_activationState != ActivationState.activated ||
+        (type == "Message" && !isReachable));
+  }
 
   @override
   void initState() {
     super.initState();
+    _selectedTransferType = _dataTransferTypes[0];
     _flutterSmartWatchPlugin.activationStateStream.listen((activationState) {
+      setState(() {
+        _activationState = activationState;
+      });
       if (activationState == ActivationState.activated) {
         _flutterSmartWatchPlugin.getLatestApplicationContext().then((context) {
-          if (context.received.containsKey("count")) {
-            setState(() {
-              count = context.received["count"] as int? ?? 0;
-            });
-          } else if (context.sent.containsKey("count")) {
-            setState(() {
-              count = context.sent["count"] as int? ?? 0;
-            });
-          }
+          _applicationContext = context.current;
+          _updateCount();
         });
       }
     });
     _flutterSmartWatchPlugin.pairedDeviceInfoStream.listen((pairedDeviceInfo) {
       print(pairedDeviceInfo);
     });
-    _flutterSmartWatchPlugin.messageStream.listen((message) {
-      if (message.containsKey("count")) {
-        setState(() {
-          count = message["count"] as int? ?? 0;
-        });
-      }
-    });
+    // _flutterSmartWatchPlugin.messageStream.listen((message) {
+    //   if (message.containsKey("count")) {
+    //     setState(() {
+    //       count = message["count"] as int? ?? 0;
+    //     });
+    //   }
+    // });
     _flutterSmartWatchPlugin.reachabilityStream.listen((isReachable) {
       setState(() {
         this.isReachable = isReachable;
@@ -55,11 +66,8 @@ class _MyAppState extends State<MyApp> {
     });
     _flutterSmartWatchPlugin.applicationContextStream
         .listen((applicationContext) {
-      if (applicationContext.received.containsKey("count")) {
-        setState(() {
-          count = applicationContext.received["count"] as int? ?? 0;
-        });
-      }
+      _applicationContext = applicationContext.received;
+      _updateCount();
     });
     _flutterSmartWatchPlugin.userInfoStream.listen((userInfo) {});
     _flutterSmartWatchPlugin.errorStream.listen((error) {
@@ -68,12 +76,20 @@ class _MyAppState extends State<MyApp> {
     _flutterSmartWatchPlugin.configure();
   }
 
-  Widget _iconButton(IconData iconData, VoidCallback onPressed) {
+  _updateCount() {
+    if (_applicationContext.containsKey("count")) {
+      setState(() {
+        count = _applicationContext["count"] as int? ?? 0;
+      });
+    }
+  }
+
+  Widget _iconButton(IconData iconData, VoidCallback? onPressed) {
     final theme = Theme.of(context);
     return Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(100),
-          color: theme.colorScheme.primary,
+          color: onPressed != null ? theme.colorScheme.primary : Colors.grey,
         ),
         child: CupertinoButton(
             padding: EdgeInsets.zero,
@@ -95,62 +111,76 @@ class _MyAppState extends State<MyApp> {
         appBar: AppBar(
           title: const Text('Plugin example app'),
         ),
-        body: StreamBuilder<ActivationState>(
-            stream: _flutterSmartWatchPlugin.activationStateStream,
-            builder: (context, snapshot) {
-              if (!snapshot.hasData ||
-                  snapshot.data != ActivationState.activated) {
-                return Container(
-                  child: Text("Your session isn't activated"),
-                );
-              }
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _iconButton(Icons.remove, () async {
-                          setState(() {
-                            count--;
-                          });
-                          _sendMessage();
-                        }),
-                        SizedBox(width: 10),
-                        Text(count.toString(),
-                            style: theme.textTheme.headline5
-                                ?.copyWith(color: theme.colorScheme.primary)),
-                        SizedBox(width: 10),
-                        _iconButton(Icons.add, () async {
-                          setState(() {
-                            count++;
-                          });
-                          _sendMessage();
-                        })
-                      ],
-                    ),
-                    SizedBox(height: 10),
-                    Text("isReachable: ${this.isReachable}"),
-                  ],
-                ),
-              );
-            }),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ..._dataTransferTypes.map((type) {
+                return RadioListTile<String>(
+                    value: type,
+                    groupValue: _selectedTransferType,
+                    selected: type == _selectedTransferType,
+                    title: Text(type),
+                    onChanged: isAbleToSendData(type)
+                        ? null
+                        : ((value) {
+                            setState(() {
+                              _selectedTransferType = value ?? "";
+                            });
+                          }));
+              }),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _iconButton(
+                      Icons.remove,
+                      isAbleToSendData(_selectedTransferType)
+                          ? null
+                          : () async {
+                              setState(() {
+                                count--;
+                              });
+                              _sendData();
+                            }),
+                  SizedBox(width: 10),
+                  Text(count.toString(),
+                      style: theme.textTheme.headline5
+                          ?.copyWith(color: theme.colorScheme.primary)),
+                  SizedBox(width: 10),
+                  _iconButton(
+                      Icons.add,
+                      isAbleToSendData(_selectedTransferType)
+                          ? null
+                          : () async {
+                              setState(() {
+                                count++;
+                              });
+                              _sendData();
+                            })
+                ],
+              ),
+              SizedBox(height: 10),
+              Text("isReachable: ${this.isReachable}"),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  _sendMessage() async {
+  _sendData() async {
     try {
-      if (isReachable) {
-        //* send data when the watch is in foreground
-        await _flutterSmartWatchPlugin.sendMessage({"count": count},
-            replyHandler: (replyMessage) {
-          print(replyMessage);
-        });
-      } else {
-        //* send data when the watch is in background
-        _flutterSmartWatchPlugin.updateApplicationContext({"count": count});
+      switch (_selectedTransferType) {
+        case "Message":
+          _flutterSmartWatchPlugin.sendMessage({"count": count});
+          break;
+        case "Application Context":
+          _applicationContext["count"] = count;
+          _flutterSmartWatchPlugin
+              .updateApplicationContext(_applicationContext);
+          break;
+        case "User Info":
+          break;
       }
     } on PlatformException catch (e) {
       print(e.message);

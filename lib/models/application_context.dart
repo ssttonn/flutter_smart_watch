@@ -15,7 +15,7 @@ class ApplicationContext {
 
   ApplicationContext(this._sentContext, this._receivedContext);
 
-  Map<String, dynamic> get sent => _sentContext;
+  Map<String, dynamic> get current => _sentContext;
   Map<String, dynamic> get received => _receivedContext;
 
   factory ApplicationContext.fromJson(Map<String, dynamic> json) =>

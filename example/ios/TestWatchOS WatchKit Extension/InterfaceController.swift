@@ -58,9 +58,7 @@ class InterfaceController: WKInterfaceController {
         guard watchSession != nil else {
             return
         }
-        if watchSession!.isReachable{
-            watchSession?.sendMessage(["count": count], replyHandler: nil)
-        }else{
+     
             var currentContext = watchSession?.applicationContext ?? [:]
             currentContext["count"] = count
             do{
@@ -68,7 +66,7 @@ class InterfaceController: WKInterfaceController {
             }catch{
                 print(error.localizedDescription)
             }
-        }
+        
     }
 }
 
