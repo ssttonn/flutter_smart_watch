@@ -8,6 +8,6 @@ part of 'application_context.dart';
 
 ApplicationContext _$ApplicationContextFromJson(Map<String, dynamic> json) =>
     ApplicationContext(
-      fromRawMap(json['sent'] as Map),
-      fromRawMap(json['received'] as Map),
+      fromRawMapToMapStringKeys(json['sent'] as Map),
+      fromRawMapToMapStringKeys(json['received'] as Map),
     );

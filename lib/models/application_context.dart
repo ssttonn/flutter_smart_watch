@@ -1,22 +1,19 @@
+import 'package:flutter_smart_watch/helpers/utils.dart';
 // import 'package:json_annotation/json_annotation.dart';
 
 part 'application_context.g.dart';
 
-Map<String, dynamic> fromRawMap(Map rawMap) {
-  return rawMap.map((key, value) => MapEntry(key.toString(), value));
-}
-
 // @JsonSerializable(createToJson: false)
 class ApplicationContext {
-  // @JsonKey(name: "sent", fromJson: fromRawMap)
-  final Map<String, dynamic> _sentContext;
-  // @JsonKey(name: "received", fromJson: fromRawMap)
-  final Map<String, dynamic> _receivedContext;
+  // @JsonKey(name: "sent", fromJson: fromRawMapToMapStringKeys)
+  final Map<String, dynamic> currentContext;
+  // @JsonKey(name: "received", fromJson: fromRawMapToMapStringKeys)
+  final Map<String, dynamic> receivedContext;
 
-  ApplicationContext(this._sentContext, this._receivedContext);
+  ApplicationContext(this.currentContext, this.receivedContext);
 
-  Map<String, dynamic> get current => _sentContext;
-  Map<String, dynamic> get received => _receivedContext;
+  Map<String, dynamic> get current => currentContext;
+  Map<String, dynamic> get received => receivedContext;
 
   factory ApplicationContext.fromJson(Map<String, dynamic> json) =>
       _$ApplicationContextFromJson(json);

@@ -30,6 +30,16 @@ abstract class _FlutterSmartWatchPlatform {
         "getLatestSentApplicationContext() has not been implemented");
   }
 
+  Future<List> getOnProgressUserInfoTransfers() {
+    throw UnimplementedError(
+        "getOnProgressUserInfoTransfers() has not been implemented");
+  }
+
+  Future<int> getRemainingComplicationUserInfoTransferCount() {
+    throw UnimplementedError(
+        "getRemainingComplicationUserInfoTransfers() has not been implemented");
+  }
+
   Future sendMessage(Message message, {String? handlerId}) {
     throw UnimplementedError("sendMessage() has not been implemented");
   }
@@ -37,5 +47,21 @@ abstract class _FlutterSmartWatchPlatform {
   Future updateApplicationContext(Map<String, dynamic> applicationContext) {
     throw UnimplementedError(
         "updateApplicationContext() has not been implemented");
+  }
+
+  Future transferUserInfo(Map<String, dynamic> userInfo,
+      {bool isComplication = false}) {
+    throw UnimplementedError("transferUserInfo() has not been implemented");
+  }
+
+  Future transferFileInfo(File file,
+      {Map<String, dynamic> metadata = const {}}) {
+    throw UnimplementedError(
+        "cancelOnProgressUserInfoTransfer() has not been implemented");
+  }
+
+  Future cancelOnProgressUserInfoTransfer(String transferId) {
+    throw UnimplementedError(
+        "cancelOnProgressUserInfoTransfer() has not been implemented");
   }
 }

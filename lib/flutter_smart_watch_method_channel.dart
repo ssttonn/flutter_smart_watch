@@ -41,6 +41,22 @@ class _MethodChannelFlutterSmartWatch extends _FlutterSmartWatchPlatform {
   }
 
   @override
+  Future<List> getOnProgressUserInfoTransfers() {
+    return methodChannel
+        .invokeMethod("getOnProgressUserInfoTransfers")
+        .then((transfers) {
+      return transfers ?? [];
+    });
+  }
+
+  @override
+  Future<int> getRemainingComplicationUserInfoTransferCount() {
+    return methodChannel
+        .invokeMethod("getRemainingComplicationUserInfoTransferCount")
+        .then((count) => count ?? 0);
+  }
+
+  @override
   Future sendMessage(Message message, {String? handlerId}) {
     return methodChannel.invokeMethod("sendMessage", {
       "message": message,
@@ -52,5 +68,24 @@ class _MethodChannelFlutterSmartWatch extends _FlutterSmartWatchPlatform {
   Future updateApplicationContext(Map<String, dynamic> applicationContext) {
     return methodChannel.invokeMethod(
         "updateApplicationContext", applicationContext);
+  }
+
+  @override
+  Future transferUserInfo(Map<String, dynamic> userInfo,
+      {bool isComplication = false}) {
+    return methodChannel.invokeMethod("transferUserInfo",
+        {"userInfo": userInfo, "isComplication": isComplication});
+  }
+
+  @override
+  Future transferFileInfo(File file,
+      {Map<String, dynamic> metadata = const {}}) {
+    return methodChannel.invokeMethod(
+        "transferFileInfo", {"filePath": file.path, "metadata": metadata});
+  }
+
+  @override
+  Future cancelOnProgressUserInfoTransfer(String transferId) {
+    return methodChannel.invokeMethod("cancelUserInfoTransfer", transferId);
   }
 }

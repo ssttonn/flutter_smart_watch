@@ -63,7 +63,7 @@ public class SwiftFlutterSmartWatchPlugin: NSObject, FlutterPlugin {
                         self.handleFlutterError(result: result, message: error.localizedDescription)
                     }
                 }
-               
+                
             }
             result(nil)
         case "getLatestApplicationContext":
@@ -77,6 +77,56 @@ public class SwiftFlutterSmartWatchPlugin: NSObject, FlutterPlugin {
                 }catch{
                     handleFlutterError(result: result, message: error.localizedDescription)
                 }
+            }
+            result(nil)
+        case "transferUserInfo":
+            checkForWatchSession(result: result)
+            if let arguments = call.arguments as? [String: Any], let userInfo = arguments["userInfo"] as? [String: Any], let isComplication = arguments["isComplication"] as? Bool{
+                let userInfoTransfer = isComplication ? watchSession?.transferCurrentComplicationUserInfo(userInfo) : watchSession!.transferUserInfo(userInfo)
+                result(userInfoTransfer!.toRawTransferDict())
+                callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: watchSession?.outstandingUserInfoTransfers.map{
+                    $0.toRawTransferDict()
+                })
+                return
+                
+            }
+            result(nil)
+        case "getOnProgressUserInfoTransfers":
+            checkForWatchSession(result: result)
+            result(watchSession!.outstandingUserInfoTransfers.map{
+                $0.toRawTransferDict()
+            })
+        case "getRemainingComplicationUserInfoTransferCount":
+            checkForWatchSession(result: result)
+            if #available(iOS 10.0, *) {
+                result(watchSession!.remainingComplicationUserInfoTransfers)
+            } else {
+                result(0)
+            }
+        case "transferFileInfo":
+            checkForWatchSession(result: result)
+            if let arguments = call.arguments as? [String: Any], let path = arguments["filePath"] as? String, let metadata = arguments["metadata"] as? [String: Any]{
+                let url = URL.init(fileURLWithPath: path)
+                let transfer = watchSession!.transferFile(url, metadata: metadata)
+            }
+            result(nil)
+        case "cancelUserInfoTransfer":
+            checkForWatchSession(result: result)
+            if let transferId = call.arguments as? String{
+                if let transfer = watchSession?.outstandingUserInfoTransfers.first(where: { transfer in
+                    transfer.userInfo.contains{key, value in
+                        key == "id" && value is String && (value as! String) == transferId
+                    }
+                }){
+                    transfer.cancel()
+                    self.callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: self.watchSession!.outstandingUserInfoTransfers.map{
+                        $0.toRawTransferDict()
+                    })
+                } else{
+                  handleFlutterError(result: result, message: "No transfer found, please try again")
+                }
+            } else{
+                handleFlutterError(result: result, message: "No transfer id specified, please try again")
             }
             result(nil)
         default:
@@ -142,12 +192,32 @@ extension SwiftFlutterSmartWatchPlugin: WCSessionDelegate{
     }
     
     public func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any] = [:]) {
-        
+        callbackChannel.invokeMethod("onUserInfoReceived", arguments: userInfo)
     }
     
     public func session(_ session: WCSession, didFinish userInfoTransfer: WCSessionUserInfoTransfer, error: Error?) {
+        if error != nil{
+            handleCallbackError(message: error!.localizedDescription)
+            return
+        }
+        callbackChannel.invokeMethod("onUserInfoTransferDidFinish", arguments: userInfoTransfer.toRawTransferDict())
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: {
+            self.callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: self.watchSession!.outstandingUserInfoTransfers.map{
+                $0.toRawTransferDict()
+            })
+        })
+    }
+    
+    public func session(_ session: WCSession, didFinish fileTransfer: WCSessionFileTransfer, error: Error?) {
+        if error != nil{
+            handleCallbackError(message: error!.localizedDescription)
+            return
+        }
+        
     }
 }
+
+
 
 //MARK: - Helper methods
 extension SwiftFlutterSmartWatchPlugin{
@@ -172,6 +242,16 @@ extension SwiftFlutterSmartWatchPlugin{
     
     private func handleCallbackError(message: String){
         callbackChannel.invokeMethod("onError", arguments: message)
+    }
+}
+
+extension WCSessionUserInfoTransfer{
+    func toRawTransferDict()-> [String: Any]{
+        return [
+            "isCurrentComplicationInfo": self.isCurrentComplicationInfo,
+            "userInfo": self.userInfo,
+            "isTransferring": self.isTransferring,
+        ]
     }
 }
 

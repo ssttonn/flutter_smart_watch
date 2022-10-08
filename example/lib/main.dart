@@ -1,8 +1,13 @@
+import 'dart:developer';
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_smart_watch/flutter_smart_watch.dart';
+import 'package:flutter_smart_watch/models/user_info_transfer.dart';
+import 'package:image_picker/image_picker.dart';
 
 void main() {
   runApp(const MyApp());
@@ -25,6 +30,7 @@ class _MyAppState extends State<MyApp> {
     "Application Context",
     "User Info"
   ];
+  List<UserInfoTransfer> _transfers = [];
   ActivationState _activationState = ActivationState.notActivated;
 
   String _selectedTransferType = "";
@@ -38,50 +44,36 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _selectedTransferType = _dataTransferTypes[0];
-    _flutterSmartWatchPlugin.activationStateStream.listen((activationState) {
-      setState(() {
-        _activationState = activationState;
-      });
-      if (activationState == ActivationState.activated) {
-        _flutterSmartWatchPlugin.getLatestApplicationContext().then((context) {
-          _applicationContext = context.current;
-          _updateCount();
-        });
+    _flutterSmartWatchPlugin.isSupported().then((supported) {
+      if (supported) {
+        _flutterSmartWatchPlugin.activate();
+        _flutterSmartWatchPlugin
+            .getOnProgressUserInfoTransfers()
+            .then((value) => inspect(value));
       }
     });
-    _flutterSmartWatchPlugin.pairedDeviceInfoStream.listen((pairedDeviceInfo) {
-      print(pairedDeviceInfo);
+    _flutterSmartWatchPlugin.messageStream.listen((message) {
+      print(message);
     });
-    // _flutterSmartWatchPlugin.messageStream.listen((message) {
-    //   if (message.containsKey("count")) {
-    //     setState(() {
-    //       count = message["count"] as int? ?? 0;
-    //     });
-    //   }
-    // });
-    _flutterSmartWatchPlugin.reachabilityStream.listen((isReachable) {
+    _flutterSmartWatchPlugin.activationStateStream.listen((state) {
       setState(() {
-        this.isReachable = isReachable;
+        _activationState = state;
       });
     });
-    _flutterSmartWatchPlugin.applicationContextStream
-        .listen((applicationContext) {
-      _applicationContext = applicationContext.received;
-      _updateCount();
+    _flutterSmartWatchPlugin.userInfoStream.listen((userInfo) {
+      print("INFO");
+      inspect(userInfo);
     });
-    _flutterSmartWatchPlugin.userInfoStream.listen((userInfo) {});
-    _flutterSmartWatchPlugin.errorStream.listen((error) {
-      print(error.message);
+    _flutterSmartWatchPlugin.userInfoTransferDidFinishStream.listen((transfer) {
+      print("FINISHED");
+      inspect(transfer);
     });
-    _flutterSmartWatchPlugin.configure();
-  }
-
-  _updateCount() {
-    if (_applicationContext.containsKey("count")) {
-      setState(() {
-        count = _applicationContext["count"] as int? ?? 0;
-      });
-    }
+    _flutterSmartWatchPlugin.onProgressUserInfoTransferListStream
+        .listen((transfers) {
+      print("TRANSFER");
+      inspect(transfers);
+      _transfers = transfers;
+    });
   }
 
   Widget _iconButton(IconData iconData, VoidCallback? onPressed) {
@@ -180,6 +172,12 @@ class _MyAppState extends State<MyApp> {
               .updateApplicationContext(_applicationContext);
           break;
         case "User Info":
+          final ImagePicker _picker = ImagePicker();
+          // Pick an image
+          final XFile? image =
+              await _picker.pickImage(source: ImageSource.gallery);
+          _flutterSmartWatchPlugin.transferFileInfo(File(image?.path ?? ""),
+              metadata: {"abc": "ds"});
           break;
       }
     } on PlatformException catch (e) {
