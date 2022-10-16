@@ -1,0 +1,27 @@
+name: flutter_smart_watch_android
+description: A new Flutter plugin project.
+version: 0.0.1
+
+environment:
+  sdk: '>=2.18.2 <3.0.0'
+  flutter: ">=2.5.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_smart_watch_platform_interface:
+    path: ../flutter_smart_watch_platform_interface/
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  plugin:
+    implements: flutter_smart_watch
+    platforms:
+      android:
+        package: com.sstonn.flutter_smart_watch_android
+        pluginClass: FlutterSmartWatchAndroidPlugin
+        dartPluginClass: FlutterSmartWatchAndroid
+

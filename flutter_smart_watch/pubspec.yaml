@@ -10,8 +10,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  json_annotation: ^4.7.0
+  # json_annotation: ^4.7.0
   image_picker: ^0.8.6
+  flutter_smart_watch_android:
+    path: ./platforms/flutter_smart_watch_android/
 
 dev_dependencies:
   flutter_test:
