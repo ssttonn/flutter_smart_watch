@@ -2,6 +2,7 @@ name: flutter_smart_watch
 description: The Flutter library provides a wrapper layer to communicate with apps running on WatchOS and WearOS.
 version: 0.0.1
 homepage: https://github.com/ssttonn/flutter_smart_watch
+publish_to: none
 
 environment:
   sdk: ">=2.17.6 <3.0.0"
@@ -13,7 +14,11 @@ dependencies:
   # json_annotation: ^4.7.0
   image_picker: ^0.8.6
   flutter_smart_watch_android:
-    path: ./platforms/flutter_smart_watch_android/
+    path: ../flutter_smart_watch_android/
+  flutter_smart_watch_ios:
+    path: ../flutter_smart_watch_ios/
+  flutter_smart_watch_platform_interface:
+    path: ../flutter_smart_watch_platform_interface
 
 dev_dependencies:
   flutter_test:
@@ -25,7 +30,6 @@ flutter:
   plugin:
     platforms:
       android:
-        package: sstonn.example.flutter_smart_watch
-        pluginClass: FlutterSmartWatchPlugin
+        default_package: flutter_smart_watch_android
       ios:
-        pluginClass: FlutterSmartWatchPlugin
+        default_package: flutter_smart_watch_ios

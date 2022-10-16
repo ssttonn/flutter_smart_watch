@@ -1,4 +1,4 @@
-import 'package:flutter_smart_watch/helpers/utils.dart';
+import '../helpers/utils.dart';
 // import 'package:json_annotation/json_annotation.dart';
 
 part 'user_info_transfer.g.dart';

@@ -1,22 +1,28 @@
 PODS:
   - Flutter (1.0.0)
-  - flutter_smart_watch (0.0.1):
+  - flutter_smart_watch_ios (0.0.1):
+    - Flutter
+  - image_picker_ios (0.0.1):
     - Flutter
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
-  - flutter_smart_watch (from `.symlinks/plugins/flutter_smart_watch/ios`)
+  - flutter_smart_watch_ios (from `.symlinks/plugins/flutter_smart_watch_ios/ios`)
+  - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
 
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
-  flutter_smart_watch:
-    :path: ".symlinks/plugins/flutter_smart_watch/ios"
+  flutter_smart_watch_ios:
+    :path: ".symlinks/plugins/flutter_smart_watch_ios/ios"
+  image_picker_ios:
+    :path: ".symlinks/plugins/image_picker_ios/ios"
 
 SPEC CHECKSUMS:
-  Flutter: 50d75fe2f02b26cc09d224853bb45737f8b3214a
-  flutter_smart_watch: 66aa692b4fad640e2dee18a105acba4eb45c55bb
+  Flutter: f04841e97a9d0b0a8025694d0796dd46242b2854
+  flutter_smart_watch_ios: 322eb121149fe06bc80a1029851acc9ea11913de
+  image_picker_ios: b786a5dcf033a8336a657191401bfdf12017dabb
 
-PODFILE CHECKSUM: f8163676bfda13d12a9526e4bb0d205ab3329550
+PODFILE CHECKSUM: 8fe8b02949a49f65f1bfc562d949c3d3c83e88db
 
 COCOAPODS: 1.11.3

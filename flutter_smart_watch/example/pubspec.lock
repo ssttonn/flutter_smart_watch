@@ -79,14 +79,21 @@ packages:
   flutter_smart_watch_android:
     dependency: transitive
     description:
-      path: "../platforms/flutter_smart_watch_android"
+      path: "../../flutter_smart_watch_android"
+      relative: true
+    source: path
+    version: "0.0.1"
+  flutter_smart_watch_ios:
+    dependency: transitive
+    description:
+      path: "../../flutter_smart_watch_ios"
       relative: true
     source: path
     version: "0.0.1"
   flutter_smart_watch_platform_interface:
     dependency: transitive
     description:
-      path: "../platforms/flutter_smart_watch_platform_interface"
+      path: "../../flutter_smart_watch_platform_interface"
       relative: true
     source: path
     version: "0.0.1"
