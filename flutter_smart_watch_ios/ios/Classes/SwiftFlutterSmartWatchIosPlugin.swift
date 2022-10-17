@@ -3,150 +3,181 @@ import UIKit
 import WatchConnectivity
 
 typealias ReplyHandler = ([String: Any]) -> Void
+typealias ProgressHandler = (Int) -> Void
 
 public class SwiftFlutterSmartWatchIosPlugin: NSObject, FlutterPlugin {
     private var watchSession: WCSession?
-       private var callbackChannel: FlutterMethodChannel
-       
-       public static func register(with registrar: FlutterPluginRegistrar) {
-           let channel = FlutterMethodChannel(name: "sstonn/flutter_smart_watch_ios", binaryMessenger: registrar.messenger())
-           let instance = SwiftFlutterSmartWatchIosPlugin(callbackChannel: FlutterMethodChannel(name: "flutter_smart_watch_callback", binaryMessenger: registrar.messenger()))
-           registrar.addMethodCallDelegate(instance, channel: channel)
-       }
-       
-       init(callbackChannel: FlutterMethodChannel){
-           self.callbackChannel = callbackChannel
-       }
-       
-       public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-           switch call.method{
-           case "isSupported":
-               let isSupported = WCSession.isSupported()
-               result(isSupported)
-           case "configure":
-               watchSession = WCSession.default
-               watchSession?.delegate = self
-               if  watchSession?.activationState != WCSessionActivationState.activated{
-                   watchSession?.activate()
-               }else{
-                   callbackChannel.invokeMethod("activateStateChanged", arguments: WCSessionActivationState.activated.rawValue)
-               }
-               result(nil)
-           case "getActivateState":
-               checkForWatchSession(result: result)
-               result(watchSession?.activationState.rawValue)
-           case "getPairedDeviceInfo":
-               checkForWatchSession(result: result)
-               do{
-                   result(try watchSession?.toPairedDeviceJsonString())
-               }catch{
-                   handleFlutterError(result: result, message: error.localizedDescription)
-               }
-           case "getReachability":
-               checkForWatchSession(result: result)
-               result(watchSession!.isReachable)
-           case "sendMessage":
-               checkForWatchSession(result: result)
-               if let arguments = call.arguments as? [String: Any]{
-                   checkSessionReachability(result: result)
-                   if let message = arguments["message"] as? [String: Any]{
-                       var handler: ReplyHandler? = nil
-                       if let replyHandlerId = arguments["replyHandlerId"] as? String{
-                           handler = { replyHandler in
-                               var arguments: [String: Any] = [:]
-                               arguments["replyMessage"] = replyHandler
-                               arguments["replyHandlerId"] = replyHandlerId
-                               self.callbackChannel.invokeMethod("onMessageReplied", arguments: arguments)
-                           }
-                       }
-                       watchSession?.sendMessage(message, replyHandler: handler){ error in
-                           self.handleFlutterError(result: result, message: error.localizedDescription)
-                       }
-                   }
-                   
-               }
-               result(nil)
-           case "getLatestApplicationContext":
-               checkForWatchSession(result: result)
-               result(getApplicationContext(session: watchSession!))
-           case "updateApplicationContext":
-               checkForWatchSession(result: result)
-               if let sentApplicationContext = call.arguments as? [String: Any]{
-                   do{
-                       try watchSession?.updateApplicationContext(sentApplicationContext)
-                   }catch{
-                       handleFlutterError(result: result, message: error.localizedDescription)
-                   }
-               }
-               result(nil)
-           case "transferUserInfo":
-               checkForWatchSession(result: result)
-               if let arguments = call.arguments as? [String: Any], let userInfo = arguments["userInfo"] as? [String: Any], let isComplication = arguments["isComplication"] as? Bool{
-                   let userInfoTransfer = isComplication ? watchSession?.transferCurrentComplicationUserInfo(userInfo) : watchSession!.transferUserInfo(userInfo)
-                   result(userInfoTransfer!.toRawTransferDict())
-                   callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: watchSession?.outstandingUserInfoTransfers.map{
-                       $0.toRawTransferDict()
-                   })
-                   return
-                   
-               }
-               result(nil)
-           case "getOnProgressUserInfoTransfers":
-               checkForWatchSession(result: result)
-               result(watchSession!.outstandingUserInfoTransfers.map{
-                   $0.toRawTransferDict()
-               })
-           case "getRemainingComplicationUserInfoTransferCount":
-               checkForWatchSession(result: result)
-               if #available(iOS 10.0, *) {
-                   result(watchSession!.remainingComplicationUserInfoTransfers)
-               } else {
-                   result(0)
-               }
-           case "transferFileInfo":
-               checkForWatchSession(result: result)
-               if let arguments = call.arguments as? [String: Any], let path = arguments["filePath"] as? String, let metadata = arguments["metadata"] as? [String: Any]{
-                   let url = URL.init(fileURLWithPath: path)
-                   let transfer = watchSession!.transferFile(url, metadata: metadata)
-               }
-               result(nil)
-           case "cancelUserInfoTransfer":
-               checkForWatchSession(result: result)
-               if let transferId = call.arguments as? String{
-                   if let transfer = watchSession?.outstandingUserInfoTransfers.first(where: { transfer in
-                       transfer.userInfo.contains{key, value in
-                           key == "id" && value is String && (value as! String) == transferId
-                       }
-                   }){
-                       transfer.cancel()
-                       self.callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: self.watchSession!.outstandingUserInfoTransfers.map{
-                           $0.toRawTransferDict()
-                       })
-                   } else{
-                     handleFlutterError(result: result, message: "No transfer found, please try again")
-                   }
-               } else{
-                   handleFlutterError(result: result, message: "No transfer id specified, please try again")
-               }
-               result(nil)
-           default:
-               result(nil)
-           }
-       }
-       
-       private func checkForWatchSession(result: FlutterResult){
-           guard watchSession != nil else{
-               handleFlutterError(result: result, message: "Session not found, you need to call activate() first to configure a session")
-               return
-           }
-       }
-       
-       private func checkSessionReachability(result: FlutterResult){
-           if (!watchSession!.isReachable){
-               handleFlutterError(result: result, message: "Session is not reachable, your companion app is either disconnected or is in offline mode")
-               return
-           }
-       }
+    private var callbackChannel: FlutterMethodChannel
+    
+    public static func register(with registrar: FlutterPluginRegistrar) {
+        let channel = FlutterMethodChannel(name: "sstonn/flutter_smart_watch_ios", binaryMessenger: registrar.messenger())
+        let instance = SwiftFlutterSmartWatchIosPlugin(callbackChannel: FlutterMethodChannel(name: "sstonn/flutter_smart_watch_ios_callback", binaryMessenger: registrar.messenger()))
+        registrar.addMethodCallDelegate(instance, channel: channel)
+    }
+    
+    init(callbackChannel: FlutterMethodChannel){
+        self.callbackChannel = callbackChannel
+    }
+    
+    public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+        switch call.method{
+        case "isSupported":
+            let isSupported = WCSession.isSupported()
+            result(isSupported)
+        case "configure":
+            watchSession = WCSession.default
+            watchSession?.delegate = self
+            if  watchSession?.activationState != WCSessionActivationState.activated{
+                watchSession?.activate()
+            }else{
+                callbackChannel.invokeMethod("activateStateChanged", arguments: WCSessionActivationState.activated.rawValue)
+            }
+            result(nil)
+        case "getActivateState":
+            checkForWatchSession(result: result)
+            result(watchSession?.activationState.rawValue)
+        case "getPairedDeviceInfo":
+            checkForWatchSession(result: result)
+            do{
+                result(try watchSession?.toPairedDeviceJsonString())
+            }catch{
+                handleFlutterError(result: result, message: error.localizedDescription)
+            }
+        case "getReachability":
+            checkForWatchSession(result: result)
+            result(watchSession!.isReachable)
+        case "sendMessage":
+            checkForWatchSession(result: result)
+            if let arguments = call.arguments as? [String: Any]{
+                checkSessionReachability(result: result)
+                if let message = arguments["message"] as? [String: Any]{
+                    var handler: ReplyHandler? = nil
+                    if let replyHandlerId = arguments["replyHandlerId"] as? String{
+                        handler = { replyHandler in
+                            var arguments: [String: Any] = [:]
+                            arguments["replyMessage"] = replyHandler
+                            arguments["replyHandlerId"] = replyHandlerId
+                            self.callbackChannel.invokeMethod("onMessageReplied", arguments: arguments)
+                        }
+                    }
+                    watchSession?.sendMessage(message, replyHandler: handler){ error in
+                        self.handleFlutterError(result: result, message: error.localizedDescription)
+                    }
+                }
+                
+            }
+            result(nil)
+        case "getLatestApplicationContext":
+            checkForWatchSession(result: result)
+            result(getApplicationContext(session: watchSession!))
+        case "updateApplicationContext":
+            checkForWatchSession(result: result)
+            if let sentApplicationContext = call.arguments as? [String: Any]{
+                do{
+                    try watchSession?.updateApplicationContext(sentApplicationContext)
+                }catch{
+                    handleFlutterError(result: result, message: error.localizedDescription)
+                }
+            }
+            result(nil)
+        case "transferUserInfo":
+            checkForWatchSession(result: result)
+            if let arguments = call.arguments as? [String: Any], let userInfo = arguments["userInfo"] as? [String: Any], let isComplication = arguments["isComplication"] as? Bool{
+                let userInfoTransfer = isComplication ? watchSession?.transferCurrentComplicationUserInfo(userInfo) : watchSession!.transferUserInfo(userInfo)
+                result(userInfoTransfer!.toRawTransferDict())
+                callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: watchSession?.outstandingUserInfoTransfers.map{
+                    $0.toRawTransferDict()
+                })
+                return
+                
+            }
+            result(nil)
+        case "getOnProgressUserInfoTransfers":
+            checkForWatchSession(result: result)
+            result(watchSession!.outstandingUserInfoTransfers.map{
+                $0.toRawTransferDict()
+            })
+        case "getRemainingComplicationUserInfoTransferCount":
+            checkForWatchSession(result: result)
+            if #available(iOS 10.0, *) {
+                result(watchSession!.remainingComplicationUserInfoTransfers)
+            } else {
+                result(0)
+            }
+        case "transferFileInfo":
+            checkForWatchSession(result: result)
+            if let arguments = call.arguments as? [String: Any], let path = arguments["filePath"] as? String, let metadata = arguments["metadata"] as? [String: Any]{
+                let url = URL.init(fileURLWithPath: path)
+                let transfer = watchSession!.transferFile(url, metadata: metadata)
+                result(transfer.toRawTransferDict())
+                if let progressHandlerId = arguments["progressHandlerId"] as? String{
+                    let progressHandler: ProgressHandler = {progress in
+                        var arguments: [String: Any] = [:]
+                        arguments["currentProgress"] = progress
+                        arguments["progressHandlerId"] = progressHandlerId
+                        self.callbackChannel.invokeMethod("onFileProgressChanged", arguments: arguments)
+                    }
+                    if #available(iOS 10.0, *) {
+                        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true){timer in
+                            if #available(iOS 12.0, *) {
+                                if transfer.progress.isCancelled || transfer.progress.isFinished{
+                                    timer.invalidate()
+                                }
+                            } else {
+                                timer.invalidate()
+                                // Fallback on earlier versions
+                            }
+                            if #available(iOS 12.0, *) {
+                                let currentProgressValue = transfer.progress.completedUnitCount
+                                print(currentProgressValue)
+                                progressHandler(Int(currentProgressValue))
+                            } else {
+                                
+                            }
+                        }
+                    } else {
+                        // Fallback on earlier versions
+                    }
+                }
+            }
+            result(nil)
+        case "cancelUserInfoTransfer":
+            checkForWatchSession(result: result)
+            if let transferId = call.arguments as? String{
+                if let transfer = watchSession?.outstandingUserInfoTransfers.first(where: { transfer in
+                    transfer.userInfo.contains{key, value in
+                        key == "id" && value is String && (value as! String) == transferId
+                    }
+                }){
+                    transfer.cancel()
+                    self.callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: self.watchSession!.outstandingUserInfoTransfers.map{
+                        $0.toRawTransferDict()
+                    })
+                } else{
+                    handleFlutterError(result: result, message: "No transfer found, please try again")
+                }
+            } else{
+                handleFlutterError(result: result, message: "No transfer id specified, please try again")
+            }
+            result(nil)
+        default:
+            result(nil)
+        }
+    }
+    
+    private func checkForWatchSession(result: FlutterResult){
+        guard watchSession != nil else{
+            handleFlutterError(result: result, message: "Session not found, you need to call activate() first to configure a session")
+            return
+        }
+    }
+    
+    private func checkSessionReachability(result: FlutterResult){
+        if (!watchSession!.isReachable){
+            handleFlutterError(result: result, message: "Session is not reachable, your companion app is either disconnected or is in offline mode")
+            return
+        }
+    }
 }
 
 //MARK: - WCSessionDelegate methods handle
@@ -213,6 +244,21 @@ extension SwiftFlutterSmartWatchIosPlugin: WCSessionDelegate{
             handleCallbackError(message: error!.localizedDescription)
             return
         }
+        print(fileTransfer.file.fileURL)
+    }
+    
+    public func session(_ session: WCSession, didReceive file: WCSessionFile) {
+        var tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
+        tempURL.appendPathComponent(file.fileURL.lastPathComponent)
+        do {
+            if FileManager.default.fileExists(atPath: tempURL.path) {
+                try FileManager.default.removeItem(atPath: tempURL.path)
+            }
+            try FileManager.default.moveItem(atPath: file.fileURL.path, toPath: tempURL.path)
+            callbackChannel.invokeMethod("onFileReceived", arguments: tempURL.path)
+        } catch {
+            handleCallbackError(message: error.localizedDescription)
+        }
         
     }
 }
@@ -231,7 +277,7 @@ extension SwiftFlutterSmartWatchIosPlugin{
     
     private func getApplicationContext(session: WCSession)-> [String: [String: Any]]{
         var applicationContextDict: [String: [String: Any]] = [:]
-        applicationContextDict["sent"] = session.applicationContext
+        applicationContextDict["current"] = session.applicationContext
         applicationContextDict["received"] = session.receivedApplicationContext
         return applicationContextDict
     }
@@ -250,6 +296,15 @@ extension WCSessionUserInfoTransfer{
         return [
             "isCurrentComplicationInfo": self.isCurrentComplicationInfo,
             "userInfo": self.userInfo,
+            "isTransferring": self.isTransferring,
+        ]
+    }
+}
+
+extension WCSessionFileTransfer{
+    func toRawTransferDict()-> [String: Any]{
+        return [
+            "filePath": self.file.fileURL.path,
             "isTransferring": self.isTransferring,
         ]
     }

@@ -13,30 +13,31 @@ import 'src/helpers/utils.dart';
 import 'src/models/error.dart';
 import 'src/models/paired_device_info.dart';
 import 'src/models/user_info_transfer.dart';
+import 'src/models/file_transfer.dart';
 
 export 'src/models/application_context.dart' show ApplicationContext;
 export 'src/models/paired_device_info.dart' show PairedDeviceInfo;
 export 'src/models/user_info_transfer.dart' show UserInfoTransfer;
 export 'src/enums/activate_state.dart' show ActivationState;
+export 'src/models/file_transfer.dart' show FileTransfer;
 
 class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
   static registerWith() {
     FlutterSmartWatchPlatformInterface.instance = FlutterSmartWatchIos();
   }
 
-  WatchOSObserver _watchOSObserver = WatchOSObserver();
+  late WatchOSObserver _watchOSObserver;
 
   @override
   Future initialize() async {
+    _watchOSObserver = WatchOSObserver();
+    _watchOSObserver.initAllStreamControllers();
     if (!(await _isSmartWatchSupported())) {
       throw PlatformException(
           code: "400",
           message:
               "Your device does not support connecting to a WatchOS device.");
     }
-
-    /// Init all streamcontrollers, ready for event listener
-    _watchOSObserver.initAllStreamControllers();
     await _configureAndActivateSession();
   }
 
@@ -77,7 +78,7 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
     String? handlerId;
     if (replyHandler != null) {
       handlerId = getRandomString(20);
-      _watchOSObserver.handlers[handlerId] = replyHandler;
+      _watchOSObserver.replyHandlers[handlerId] = replyHandler;
     }
     return channel.invokeMethod("sendMessage", {
       "message": message,
@@ -101,14 +102,45 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
     return channel.invokeMethod("updateApplicationContext", applicationContext);
   }
 
-  /// Transfer a user info.
-  Future transferUserInfo(Map<String, dynamic> userInfo,
-      {bool isComplication = false}) {
-    return channel.invokeMethod("transferUserInfo",
+  /// Transfer user information.
+  ///
+  /// Returns [UserInfoTransfer] representing this transfer.
+  ///
+  /// You can cancel this transfer after creation using [cancelOnProgressUserInfoTransfer]
+  Future<UserInfoTransfer?> transferUserInfo(Map<String, dynamic> userInfo,
+      {bool isComplication = false}) async {
+    userInfo["id"] = getRandomString(20);
+    var _rawUserInfoTransfer = await channel.invokeMethod("transferUserInfo",
         {"userInfo": userInfo, "isComplication": isComplication});
+    if (_rawUserInfoTransfer != null && _rawUserInfoTransfer is Map) {
+      _rawUserInfoTransfer = _rawUserInfoTransfer.map<String, dynamic>(
+          (key, value) => MapEntry(key.toString(), value));
+      if (_rawUserInfoTransfer.containsKey("userInfo") &&
+          _rawUserInfoTransfer["userInfo"] is Map) {
+        Map<String, dynamic> userInfoInJson =
+            (_rawUserInfoTransfer["userInfo"] as Map)
+                .map((key, value) => MapEntry(key.toString(), value));
+        if (userInfoInJson.containsKey("id")) {
+          _rawUserInfoTransfer["id"] = (userInfoInJson["id"] ?? "").toString();
+          (_rawUserInfoTransfer["userInfo"] as Map).remove("id");
+        }
+      }
+      return UserInfoTransfer.fromJson(
+          _rawUserInfoTransfer.map<String, dynamic>(
+              (key, value) => MapEntry(key.toString(), value)));
+    }
+    return null;
+  }
+
+  Future cancelOnProgressUserInfoTransfer(String transferId) {
+    return channel.invokeMethod("cancelUserInfoTransfer", transferId);
   }
 
   /// Retrieve pending user info transfers.
+  ///
+  /// Call this method to retrieve all on progress user info transfers.
+  ///
+  /// You can cancel any transfer by using [cancelOnProgressUserInfoTransfer]
   Future<List> getOnProgressUserInfoTransfers() {
     return channel
         .invokeMethod("getOnProgressUserInfoTransfers")
@@ -124,14 +156,40 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
         .then((count) => count ?? 0);
   }
 
-  Future transferFileInfo(File file,
-      {Map<String, dynamic> metadata = const {}}) {
-    return channel.invokeMethod(
-        "transferFileInfo", {"filePath": file.path, "metadata": metadata});
-  }
-
-  Future cancelOnProgressUserInfoTransfer(String transferId) {
-    return channel.invokeMethod("cancelUserInfoTransfer", transferId);
+  ///Transfer a [File] to WatchOS companion app
+  ///
+  ///You can track the transfering progress implicitly with [onProgressChanged] handler.
+  ///
+  ///Return a [FileTransfer]
+  Future<FileTransfer?> transferFileInfo(File file,
+      {ProgressHandler? onProgressChanged,
+      Map<String, dynamic> metadata = const {}}) async {
+    String? handlerId;
+    Map<String, dynamic> mMetadata = new Map<String, dynamic>.from(metadata);
+    if (onProgressChanged != null) {
+      handlerId = getRandomString(20);
+      _watchOSObserver.progressHandlers[handlerId] = onProgressChanged;
+    }
+    mMetadata["id"] = getRandomString(20);
+    var _rawFileTransferInMap = await channel.invokeMethod("transferFileInfo", {
+      "filePath": file.path,
+      "metadata": mMetadata,
+      if (handlerId != null) "progressHandlerId": handlerId
+    });
+    if (_rawFileTransferInMap != null && _rawFileTransferInMap is Map) {
+      Map<String, dynamic> fileTransferInJson = _rawFileTransferInMap
+          .map((key, value) => MapEntry(key.toString(), value));
+      if (fileTransferInJson.containsKey("metadata") &&
+          fileTransferInJson["metadata"] is Map) {
+        Map<String, dynamic> _metadataInJson =
+            (fileTransferInJson["metadata"] as Map)
+                .map((key, value) => MapEntry(key.toString(), value));
+        fileTransferInJson["id"] = _metadataInJson["id"];
+        _metadataInJson.remove("id");
+      }
+      return FileTransfer.fromJson(fileTransferInJson);
+    }
+    return null;
   }
 
   Stream<ActivationState> get activationStateStream =>
@@ -152,6 +210,8 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
       _watchOSObserver.onProgressUserInfoTransferListStreamController.stream;
   Stream<UserInfoTransfer> get userInfoTransferDidFinishStream =>
       _watchOSObserver.userInfoTransferFinishedStreamController.stream;
+  Stream<File> get fileStream =>
+      _watchOSObserver.fileInfoStreamController.stream;
 
   @override
   void dispose() {

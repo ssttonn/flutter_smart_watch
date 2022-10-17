@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 
 const _chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890';
@@ -8,4 +9,9 @@ String getRandomString(int length) => String.fromCharCodes(Iterable.generate(
 
 Map<String, dynamic> fromRawMapToMapStringKeys(Map rawMap) {
   return rawMap.map((key, value) => MapEntry(key.toString(), value));
+}
+
+File? fileFromPath(String? path) {
+  if (path == null) return null;
+  return File.fromUri(Uri.parse(path));
 }

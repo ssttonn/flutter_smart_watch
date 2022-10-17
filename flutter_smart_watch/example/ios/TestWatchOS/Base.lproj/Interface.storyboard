@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder.WatchKit.Storyboard" version="3.0" toolsVersion="21225" targetRuntime="watchKit" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" colorMatched="YES" initialViewController="AgC-eL-Hgc">
+<document type="com.apple.InterfaceBuilder.WatchKit.Storyboard" version="3.0" toolsVersion="20037" targetRuntime="watchKit" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" colorMatched="YES" initialViewController="AgC-eL-Hgc">
     <device id="watch38"/>
     <dependencies>
         <deployment identifier="watchOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBWatchKitPlugin" version="21040"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="20020"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBWatchKitPlugin" version="20006"/>
     </dependencies>
     <scenes>
         <!--Interface Controller-->
@@ -11,10 +12,15 @@
             <objects>
                 <controller id="AgC-eL-Hgc" customClass="InterfaceController" customModule="TestWatchOS" customModuleProvider="target">
                     <items>
-                        <imageView width="136" height="184" alignment="left" id="gkk-tX-Lsk"/>
+                        <button width="1" alignment="left" title="Send Dogs" id="UEt-RR-Wcv">
+                            <connections>
+                                <action selector="onButtonPressed" destination="AgC-eL-Hgc" id="Ba7-u2-kjl"/>
+                            </connections>
+                        </button>
+                        <imageView alignment="left" id="T4y-eM-TC4"/>
                     </items>
                     <connections>
-                        <outlet property="image" destination="gkk-tX-Lsk" id="iyc-Ru-fJ6"/>
+                        <outlet property="image" destination="T4y-eM-TC4" id="4KI-dT-vCv"/>
                     </connections>
                 </controller>
             </objects>
