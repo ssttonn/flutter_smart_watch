@@ -21,6 +21,8 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		9E68B1A728F8FD2500F9C573 /* download.jpeg in Resources */ = {isa = PBXBuildFile; fileRef = 9E68B1A628F8FD2500F9C573 /* download.jpeg */; };
+		9EEB902C28F42AEF000DFBAE /* dogs.webp in Resources */ = {isa = PBXBuildFile; fileRef = 9EEB902B28F42AEF000DFBAE /* dogs.webp */; };
 		D7E1F0455499F11FAF4B01FE /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 93022A93391068D251712DB7 /* Pods_Runner.framework */; };
 /* End PBXBuildFile section */
 
@@ -103,6 +105,8 @@
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		9E68B1A628F8FD2500F9C573 /* download.jpeg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = download.jpeg; sourceTree = "<group>"; };
+		9EEB902B28F42AEF000DFBAE /* dogs.webp */ = {isa = PBXFileReference; lastKnownFileType = file; name = dogs.webp; path = ../../../../Downloads/dogs.webp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -144,6 +148,8 @@
 		5342A19528E7DD7800708817 /* TestWatchOS WatchKit Extension */ = {
 			isa = PBXGroup;
 			children = (
+				9E68B1A628F8FD2500F9C573 /* download.jpeg */,
+				9EEB902B28F42AEF000DFBAE /* dogs.webp */,
 				5342A19628E7DD7800708817 /* InterfaceController.swift */,
 				5342A19828E7DD7800708817 /* ExtensionDelegate.swift */,
 				5342A19A28E7DD7800708817 /* ComplicationController.swift */,
@@ -329,7 +335,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9EEB902C28F42AEF000DFBAE /* dogs.webp in Resources */,
 				5342A19D28E7DD7900708817 /* Assets.xcassets in Resources */,
+				9E68B1A728F8FD2500F9C573 /* download.jpeg in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

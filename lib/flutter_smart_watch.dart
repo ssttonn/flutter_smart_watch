@@ -44,6 +44,7 @@ class FlutterSmartWatch {
   late StreamController<bool> _reachabilityStreamController;
   late StreamController<ApplicationContext> _applicationContextStreamController;
   late StreamController<UserInfo> _userInfoStreamController;
+  late StreamController<File> _fileInfoStreamController;
   late StreamController<List<UserInfoTransfer>>
       _onProgressUserInfoTransferListStreamController;
   late StreamController<UserInfoTransfer>
@@ -116,6 +117,16 @@ class FlutterSmartWatch {
           _userInfoStreamController.add(userInfo);
         }
         break;
+      case "onFileReceived":
+        var arguments = call.arguments;
+        if (arguments != null && arguments is String) {
+          //* get received file from path
+          var _receivedFile = File(arguments);
+
+          // * add received file to global stream
+          _fileInfoStreamController.add(_receivedFile);
+        }
+        break;
       case "onPendingUserInfoTransferListChanged":
         var arguments = call.arguments;
         if (arguments != null &&
@@ -174,6 +185,7 @@ class FlutterSmartWatch {
     _onProgressUserInfoTransferListStreamController =
         StreamController.broadcast();
     _userInfoTransferFinishedStreamController = StreamController.broadcast();
+    _fileInfoStreamController = StreamController.broadcast();
     _errorStreamController = StreamController.broadcast();
     _handlers = new Map();
   }
@@ -267,6 +279,7 @@ class FlutterSmartWatch {
       _onProgressUserInfoTransferListStreamController.stream;
   Stream<UserInfoTransfer> get userInfoTransferDidFinishStream =>
       _userInfoTransferFinishedStreamController.stream;
+  Stream<File> get fileStream => _fileInfoStreamController.stream;
 
   void dispose() {
     _activateStateStreamController.close();
@@ -278,6 +291,7 @@ class FlutterSmartWatch {
     _errorStreamController.close();
     _userInfoTransferFinishedStreamController.close();
     _onProgressUserInfoTransferListStreamController.close();
+    _fileInfoStreamController.close();
     _handlers.clear();
   }
 }

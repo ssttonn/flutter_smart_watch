@@ -108,6 +108,22 @@ public class SwiftFlutterSmartWatchPlugin: NSObject, FlutterPlugin {
             if let arguments = call.arguments as? [String: Any], let path = arguments["filePath"] as? String, let metadata = arguments["metadata"] as? [String: Any]{
                 let url = URL.init(fileURLWithPath: path)
                 let transfer = watchSession!.transferFile(url, metadata: metadata)
+                let timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true){timer in
+                    
+                    if #available(iOS 12.0, *) {
+                        if transfer.progress.isCancelled || transfer.progress.isFinished{
+                            timer.invalidate()
+                        }
+                    } else {
+                        // Fallback on earlier versions
+                    }
+                    if #available(iOS 12.0, *) {
+                        let currentProgressValue = transfer.progress.completedUnitCount
+                        print(currentProgressValue)
+                    } else {
+                   
+                    }
+                }
             }
             result(nil)
         case "cancelUserInfoTransfer":
@@ -123,7 +139,7 @@ public class SwiftFlutterSmartWatchPlugin: NSObject, FlutterPlugin {
                         $0.toRawTransferDict()
                     })
                 } else{
-                  handleFlutterError(result: result, message: "No transfer found, please try again")
+                    handleFlutterError(result: result, message: "No transfer found, please try again")
                 }
             } else{
                 handleFlutterError(result: result, message: "No transfer id specified, please try again")
@@ -213,8 +229,25 @@ extension SwiftFlutterSmartWatchPlugin: WCSessionDelegate{
             handleCallbackError(message: error!.localizedDescription)
             return
         }
-        
+        print(fileTransfer.file.fileURL)
     }
+    
+    public func session(_ session: WCSession, didReceive file: WCSessionFile) {
+        var tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
+        tempURL.appendPathComponent(file.fileURL.lastPathComponent)
+        do {
+            if FileManager.default.fileExists(atPath: tempURL.path) {
+                try FileManager.default.removeItem(atPath: tempURL.path)
+            }
+            try FileManager.default.moveItem(atPath: file.fileURL.path, toPath: tempURL.path)
+            callbackChannel.invokeMethod("onFileReceived", arguments: tempURL.path)
+        } catch {
+            handleCallbackError(message: error.localizedDescription)
+        }
+      
+    }
+    
+    
 }
 
 

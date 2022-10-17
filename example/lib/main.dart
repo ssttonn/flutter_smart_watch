@@ -31,6 +31,7 @@ class _MyAppState extends State<MyApp> {
     "User Info"
   ];
   List<UserInfoTransfer> _transfers = [];
+  File? _receivedFile;
   ActivationState _activationState = ActivationState.notActivated;
 
   String _selectedTransferType = "";
@@ -63,6 +64,11 @@ class _MyAppState extends State<MyApp> {
     _flutterSmartWatchPlugin.userInfoStream.listen((userInfo) {
       print("INFO");
       inspect(userInfo);
+    });
+    _flutterSmartWatchPlugin.fileStream.listen((file) {
+      setState(() {
+        _receivedFile = file;
+      });
     });
     _flutterSmartWatchPlugin.userInfoTransferDidFinishStream.listen((transfer) {
       print("FINISHED");
@@ -105,58 +111,86 @@ class _MyAppState extends State<MyApp> {
         ),
         body: Center(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              ..._dataTransferTypes.map((type) {
-                return RadioListTile<String>(
-                    value: type,
-                    groupValue: _selectedTransferType,
-                    selected: type == _selectedTransferType,
-                    title: Text(type),
-                    onChanged: isAbleToSendData(type)
-                        ? null
-                        : ((value) {
-                            setState(() {
-                              _selectedTransferType = value ?? "";
-                            });
-                          }));
-              }),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _iconButton(
-                      Icons.remove,
-                      isAbleToSendData(_selectedTransferType)
-                          ? null
-                          : () async {
-                              setState(() {
-                                count--;
-                              });
-                              _sendData();
-                            }),
-                  SizedBox(width: 10),
-                  Text(count.toString(),
-                      style: theme.textTheme.headline5
-                          ?.copyWith(color: theme.colorScheme.primary)),
-                  SizedBox(width: 10),
-                  _iconButton(
-                      Icons.add,
-                      isAbleToSendData(_selectedTransferType)
-                          ? null
-                          : () async {
-                              setState(() {
-                                count++;
-                              });
-                              _sendData();
-                            })
-                ],
-              ),
-              SizedBox(height: 10),
-              Text("isReachable: ${this.isReachable}"),
+              _receivedFile != null ? Image.file(_receivedFile!) : Container(),
+              CupertinoButton(
+                  child: Container(
+                      decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          borderRadius: BorderRadius.circular(10)),
+                      padding: EdgeInsets.all(14),
+                      child: Text(
+                        "Pick and transfer image",
+                        style: theme.textTheme.headline6
+                            ?.copyWith(color: Colors.white),
+                      )),
+                  onPressed: () async {
+                    final ImagePicker _picker = ImagePicker();
+                    // Pick an image
+                    final XFile? image =
+                        await _picker.pickImage(source: ImageSource.gallery);
+                    if (image != null)
+                      _flutterSmartWatchPlugin
+                          .transferFileInfo(File(image.path));
+                  })
             ],
           ),
         ),
       ),
+    );
+  }
+
+  _exampleBody(ThemeData theme) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        ..._dataTransferTypes.map((type) {
+          return RadioListTile<String>(
+              value: type,
+              groupValue: _selectedTransferType,
+              selected: type == _selectedTransferType,
+              title: Text(type),
+              onChanged: isAbleToSendData(type)
+                  ? null
+                  : ((value) {
+                      setState(() {
+                        _selectedTransferType = value ?? "";
+                      });
+                    }));
+        }),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _iconButton(
+                Icons.remove,
+                isAbleToSendData(_selectedTransferType)
+                    ? null
+                    : () async {
+                        setState(() {
+                          count--;
+                        });
+                        _sendData();
+                      }),
+            SizedBox(width: 10),
+            Text(count.toString(),
+                style: theme.textTheme.headline5
+                    ?.copyWith(color: theme.colorScheme.primary)),
+            SizedBox(width: 10),
+            _iconButton(
+                Icons.add,
+                isAbleToSendData(_selectedTransferType)
+                    ? null
+                    : () async {
+                        setState(() {
+                          count++;
+                        });
+                        _sendData();
+                      })
+          ],
+        ),
+        SizedBox(height: 10),
+        Text("isReachable: ${this.isReachable}"),
+      ],
     );
   }
 
