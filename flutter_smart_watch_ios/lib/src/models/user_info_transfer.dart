@@ -1,18 +1,22 @@
+import 'package:flutter/material.dart';
+
 import '../helpers/utils.dart';
-import 'package:json_annotation/json_annotation.dart';
+// import 'package:json_annotation/json_annotation.dart';
 
 part 'user_info_transfer.g.dart';
 
-@JsonSerializable(createToJson: false)
+// @JsonSerializable(createToJson: false)
 class UserInfoTransfer {
-  @JsonKey(defaultValue: "")
+  // @JsonKey(defaultValue: "")
   final String id;
-  @JsonKey(defaultValue: false)
+  // @JsonKey(defaultValue: false)
   final bool isCurrentComplicationInfo;
-  @JsonKey(fromJson: fromRawMapToMapStringKeys)
+  // @JsonKey(fromJson: fromRawMapToMapStringKeys)
   final Map<String, dynamic> userInfo;
-  @JsonKey(defaultValue: false)
+  // @JsonKey(defaultValue: false)
   final bool isTransfering;
+  // @JsonKey(ignore:  true)
+  Future<void> Function() cancel = () async {};
 
   UserInfoTransfer(
       {required this.id,

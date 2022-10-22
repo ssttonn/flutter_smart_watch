@@ -6,14 +6,14 @@ part 'application_context.g.dart';
 // @JsonSerializable(createToJson: false)
 class ApplicationContext {
   // @JsonKey(name: "current", fromJson: fromRawMapToMapStringKeys)
-  final Map<String, dynamic> currentContext;
+  final Map<String, dynamic> _currentContext;
   // @JsonKey(name: "received", fromJson: fromRawMapToMapStringKeys)
-  final Map<String, dynamic> receivedContext;
+  final Map<String, dynamic> _receivedContext;
 
-  ApplicationContext(this.currentContext, this.receivedContext);
+  ApplicationContext(this._currentContext, this._receivedContext);
 
-  Map<String, dynamic> get current => currentContext;
-  Map<String, dynamic> get received => receivedContext;
+  Map<String, dynamic> get current => _currentContext;
+  Map<String, dynamic> get received => _receivedContext;
 
   factory ApplicationContext.fromJson(Map<String, dynamic> json) =>
       _$ApplicationContextFromJson(json);

@@ -5,20 +5,22 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_watch_ios/channel.dart';
 import 'package:flutter_smart_watch_ios/src/models/application_context.dart';
+import 'package:flutter_smart_watch_ios/src/models/message.dart';
 import 'package:flutter_smart_watch_ios/src/models/paired_device_info.dart';
 import 'package:flutter_smart_watch_ios/src/models/user_info_transfer.dart';
 
 import 'src/enums/activate_state.dart';
 import 'src/models/error.dart';
 
-typedef MessageReplyHandler = Function(Map<String, dynamic> message);
+typedef MessageReplyHandler = Future<void> Function(
+    Map<String, dynamic> message);
 
 typedef ProgressHandler = Function(double);
 
 class WatchOSObserver {
   late StreamController<ActivationState> activateStateStreamController;
   late StreamController<PairedDeviceInfo> pairedDeviceInfoStreamController;
-  late StreamController<Map<String, dynamic>> messageStreamController;
+  late StreamController<Message> messageStreamController;
   late StreamController<bool> reachabilityStreamController;
   late StreamController<ApplicationContext> applicationContextStreamController;
   late StreamController<Map<String, dynamic>> userInfoStreamController;
@@ -56,10 +58,20 @@ class WatchOSObserver {
         }
         break;
       case "messageReceived":
-        if (call.arguments != null) {
+        if (call.arguments != null && call.arguments is Map) {
           try {
-            Map<String, dynamic> message = json
-                .decode(json.encode(call.arguments)) as Map<String, dynamic>;
+            Map<String, dynamic> messageData =
+                json.decode(json.encode(call.arguments["message"]))
+                    as Map<String, dynamic>;
+            String? replyHandlerId = call.arguments["replyHandlerId"];
+            Message message = Message(
+                data: messageData,
+                onReply: ((message) {
+                  return channel.invokeMethod("replyMessage", {
+                    "replyMessage": message,
+                    "replyHandlerId": replyHandlerId
+                  });
+                }));
             messageStreamController.add(message);
           } catch (e) {
             errorStreamController
@@ -84,7 +96,7 @@ class WatchOSObserver {
           }
         }
         break;
-      case "onApplicationContextReceived":
+      case "onApplicationContextUpdated":
         var arguments = call.arguments;
         if (arguments != null && arguments is Map) {
           var applicationContext = ApplicationContext.fromJson(
@@ -157,7 +169,10 @@ class WatchOSObserver {
         (json["userInfo"] as Map).remove("id");
       }
     }
-    return UserInfoTransfer.fromJson(json);
+    UserInfoTransfer _userInfoTransfer = UserInfoTransfer.fromJson(json);
+    _userInfoTransfer.cancel = () =>
+        channel.invokeMethod("cancelUserInfoTransfer", _userInfoTransfer.id);
+    return _userInfoTransfer;
   }
 
   initAllStreamControllers() {

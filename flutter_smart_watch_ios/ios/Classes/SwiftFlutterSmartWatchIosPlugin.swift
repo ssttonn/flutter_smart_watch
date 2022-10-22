@@ -9,6 +9,8 @@ public class SwiftFlutterSmartWatchIosPlugin: NSObject, FlutterPlugin {
     private var watchSession: WCSession?
     private var callbackChannel: FlutterMethodChannel
     
+    private var messageReplyHandlers:  [String: ([String : Any]) -> Void] = [:]
+    
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "sstonn/flutter_smart_watch_ios", binaryMessenger: registrar.messenger())
         let instance = SwiftFlutterSmartWatchIosPlugin(callbackChannel: FlutterMethodChannel(name: "sstonn/flutter_smart_watch_ios_callback", binaryMessenger: registrar.messenger()))
@@ -67,6 +69,15 @@ public class SwiftFlutterSmartWatchIosPlugin: NSObject, FlutterPlugin {
                 
             }
             result(nil)
+        case "replyMessage":
+            checkForWatchSession(result: result)
+            if let arguments = call.arguments as? [String: Any]{
+                checkSessionReachability(result: result)
+                if let message = arguments["replyMessage"] as? [String: Any], let replyHandlerId = arguments["replyHandlerId"] as? String, let replyHandler =  messageReplyHandlers[replyHandlerId]{
+                    replyHandler(message)
+                }
+            }
+            result(nil)
         case "getLatestApplicationContext":
             checkForWatchSession(result: result)
             result(getApplicationContext(session: watchSession!))
@@ -75,6 +86,7 @@ public class SwiftFlutterSmartWatchIosPlugin: NSObject, FlutterPlugin {
             if let sentApplicationContext = call.arguments as? [String: Any]{
                 do{
                     try watchSession?.updateApplicationContext(sentApplicationContext)
+                    self.callbackChannel.invokeMethod("onApplicationContextUpdated", arguments: getApplicationContext(session: self.watchSession!))
                 }catch{
                     handleFlutterError(result: result, message: error.localizedDescription)
                 }
@@ -83,10 +95,12 @@ public class SwiftFlutterSmartWatchIosPlugin: NSObject, FlutterPlugin {
         case "transferUserInfo":
             checkForWatchSession(result: result)
             if let arguments = call.arguments as? [String: Any], let userInfo = arguments["userInfo"] as? [String: Any], let isComplication = arguments["isComplication"] as? Bool{
-                let userInfoTransfer = isComplication ? watchSession?.transferCurrentComplicationUserInfo(userInfo) : watchSession!.transferUserInfo(userInfo)
-                result(userInfoTransfer!.toRawTransferDict())
-                callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: watchSession?.outstandingUserInfoTransfers.map{
-                    $0.toRawTransferDict()
+                let userInfoTransfer = isComplication ? watchSession!.transferCurrentComplicationUserInfo(userInfo) : watchSession!.transferUserInfo(userInfo)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: {
+                    result(userInfoTransfer.toRawTransferDict())
+                    self.callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: self.watchSession?.outstandingUserInfoTransfers.map{
+                        $0.toRawTransferDict()
+                    })
                 })
                 return
                 
@@ -207,11 +221,22 @@ extension SwiftFlutterSmartWatchIosPlugin: WCSessionDelegate{
     }
     
     public func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
-        callbackChannel.invokeMethod("messageReceived", arguments: message)
+        var messageContent: [String: Any] = [:]
+        messageContent["message"] = message
+        callbackChannel.invokeMethod("messageReceived", arguments: messageContent)
+    }
+    
+    public func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
+        var messageContent: [String: Any] = [:]
+        let replyHandlerId = randomString(length: 20)
+        messageContent["message"] = message
+        messageContent["replyHandlerId"] = replyHandlerId
+        callbackChannel.invokeMethod("messageReceived", arguments: messageContent)
+        messageReplyHandlers[replyHandlerId] = replyHandler
     }
     
     public func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
-        callbackChannel.invokeMethod("onApplicationContextReceived", arguments: getApplicationContext(session:session))
+        callbackChannel.invokeMethod("onApplicationContextUpdated", arguments: getApplicationContext(session:  session))
     }
     
     public func sessionWatchStateDidChange(_ session: WCSession) {
@@ -324,4 +349,10 @@ extension WCSession{
         return String(data: jsonData, encoding: .utf8) ?? ""
     }
 }
+
+func randomString(length: Int) -> String {
+  let letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+  return String((0..<length).map{ _ in letters.randomElement()! })
+}
+
 

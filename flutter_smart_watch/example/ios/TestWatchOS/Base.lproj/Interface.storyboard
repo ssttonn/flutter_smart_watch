@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder.WatchKit.Storyboard" version="3.0" toolsVersion="20037" targetRuntime="watchKit" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" colorMatched="YES" initialViewController="AgC-eL-Hgc">
+<document type="com.apple.InterfaceBuilder.WatchKit.Storyboard" version="3.0" toolsVersion="21225" targetRuntime="watchKit" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" colorMatched="YES" initialViewController="AgC-eL-Hgc">
     <device id="watch38"/>
     <dependencies>
         <deployment identifier="watchOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="20020"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBWatchKitPlugin" version="20006"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBWatchKitPlugin" version="21040"/>
     </dependencies>
     <scenes>
         <!--Interface Controller-->
@@ -12,15 +11,27 @@
             <objects>
                 <controller id="AgC-eL-Hgc" customClass="InterfaceController" customModule="TestWatchOS" customModuleProvider="target">
                     <items>
-                        <button width="1" alignment="left" title="Send Dogs" id="UEt-RR-Wcv">
+                        <label alignment="left" text="Message label" id="42v-zx-8Cj"/>
+                        <button width="1" alignment="left" title="Send message" id="UEt-RR-Wcv">
                             <connections>
-                                <action selector="onButtonPressed" destination="AgC-eL-Hgc" id="Ba7-u2-kjl"/>
+                                <action selector="sendMessagePressed" destination="AgC-eL-Hgc" id="yxV-uJ-mZd"/>
+                            </connections>
+                        </button>
+                        <button width="1" alignment="left" title="Update application context" id="eJh-fr-mkd">
+                            <connections>
+                                <action selector="updateApplicationContextPressed" destination="AgC-eL-Hgc" id="LcV-2H-tur"/>
+                            </connections>
+                        </button>
+                        <button width="1" alignment="left" title="Send user info" id="tEe-y8-xtu">
+                            <connections>
+                                <action selector="transferUserInfoPressed" destination="AgC-eL-Hgc" id="elm-Wl-bdL"/>
                             </connections>
                         </button>
                         <imageView alignment="left" id="T4y-eM-TC4"/>
                     </items>
                     <connections>
                         <outlet property="image" destination="T4y-eM-TC4" id="4KI-dT-vCv"/>
+                        <outlet property="messageLabel" destination="42v-zx-8Cj" id="BTC-Px-5jl"/>
                     </connections>
                 </controller>
             </objects>

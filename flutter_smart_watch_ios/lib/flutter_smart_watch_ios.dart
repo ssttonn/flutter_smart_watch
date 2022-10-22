@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_watch_ios/channel.dart';
 import 'package:flutter_smart_watch_ios/src/models/application_context.dart';
+import 'package:flutter_smart_watch_ios/src/models/message.dart';
 import 'package:flutter_smart_watch_ios/watch_os_observer.dart';
 import 'package:flutter_smart_watch_platform_interface/flutter_smart_watch_platform_interface.dart';
 
@@ -38,7 +39,6 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
           message:
               "Your device does not support connecting to a WatchOS device.");
     }
-    await _configureAndActivateSession();
   }
 
   /// Check if your IOS device is supported to connect with WatchOS device
@@ -48,7 +48,7 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
   }
 
   /// Init and activate [WatchConnectivity] session
-  Future _configureAndActivateSession() async {
+  Future configureAndActivateSession() async {
     return channel.invokeMethod("configure");
   }
 
@@ -96,7 +96,7 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
 
   /// Update and sync the [ApplicationContext].
   /// [ApplicationContext] works like the common data between both WatchOS and IOS app,
-  /// which can be updated by calling [updateApplicationContext] method and synced via [applicationContextStream].
+  /// which can be updated by calling [updateApplicationContext] method and synced via [applicationContextUpdated].
   /// You can call this method either the WatchOS companion app is in background or foreground
   Future updateApplicationContext(Map<String, dynamic> applicationContext) {
     return channel.invokeMethod("updateApplicationContext", applicationContext);
@@ -106,46 +106,47 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
   ///
   /// Returns [UserInfoTransfer] representing this transfer.
   ///
-  /// You can cancel this transfer after creation using [cancelOnProgressUserInfoTransfer]
+  /// You can cancel any transfer by calling [cancel] method of [UserInfoTransfer]
   Future<UserInfoTransfer?> transferUserInfo(Map<String, dynamic> userInfo,
       {bool isComplication = false}) async {
     userInfo["id"] = getRandomString(20);
     var _rawUserInfoTransfer = await channel.invokeMethod("transferUserInfo",
         {"userInfo": userInfo, "isComplication": isComplication});
     if (_rawUserInfoTransfer != null && _rawUserInfoTransfer is Map) {
-      _rawUserInfoTransfer = _rawUserInfoTransfer.map<String, dynamic>(
-          (key, value) => MapEntry(key.toString(), value));
-      if (_rawUserInfoTransfer.containsKey("userInfo") &&
-          _rawUserInfoTransfer["userInfo"] is Map) {
-        Map<String, dynamic> userInfoInJson =
-            (_rawUserInfoTransfer["userInfo"] as Map)
-                .map((key, value) => MapEntry(key.toString(), value));
-        if (userInfoInJson.containsKey("id")) {
-          _rawUserInfoTransfer["id"] = (userInfoInJson["id"] ?? "").toString();
-          (_rawUserInfoTransfer["userInfo"] as Map).remove("id");
-        }
-      }
-      return UserInfoTransfer.fromJson(
-          _rawUserInfoTransfer.map<String, dynamic>(
-              (key, value) => MapEntry(key.toString(), value)));
+      return _mapIdAndConvert(_rawUserInfoTransfer.map<String, dynamic>(
+          (key, value) => MapEntry(key.toString(), value)));
     }
     return null;
   }
 
-  Future cancelOnProgressUserInfoTransfer(String transferId) {
-    return channel.invokeMethod("cancelUserInfoTransfer", transferId);
+  UserInfoTransfer _mapIdAndConvert(Map<String, dynamic> json) {
+    if (json.containsKey("userInfo") && json["userInfo"] is Map) {
+      Map<String, dynamic> userInfoInJson = (json["userInfo"] as Map)
+          .map((key, value) => MapEntry(key.toString(), value));
+      if (userInfoInJson.containsKey("id")) {
+        json["id"] = (userInfoInJson["id"] ?? "").toString();
+        (json["userInfo"] as Map).remove("id");
+      }
+    }
+    UserInfoTransfer _userInfoTransfer = UserInfoTransfer.fromJson(json);
+    _userInfoTransfer.cancel = () =>
+        channel.invokeMethod("cancelUserInfoTransfer", _userInfoTransfer.id);
+    return _userInfoTransfer;
   }
 
   /// Retrieve pending user info transfers.
   ///
   /// Call this method to retrieve all on progress user info transfers.
   ///
-  /// You can cancel any transfer by using [cancelOnProgressUserInfoTransfer]
-  Future<List> getOnProgressUserInfoTransfers() {
+  /// You can cancel any transfer by calling [cancel] method of [UserInfoTransfer]
+  Future<List<UserInfoTransfer>> getOnProgressUserInfoTransfers() {
     return channel
         .invokeMethod("getOnProgressUserInfoTransfers")
-        .then((transfers) {
-      return transfers ?? [];
+        .then((transfersJson) {
+      return (transfersJson as List? ?? []).map((transferJson) {
+        return _mapIdAndConvert(transferJson.map<String, dynamic>(
+            (key, value) => MapEntry(key.toString(), value)));
+      }).toList();
     });
   }
 
@@ -192,25 +193,25 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
     return null;
   }
 
-  Stream<ActivationState> get activationStateStream =>
+  Stream<ActivationState> get activationStateChanged =>
       _watchOSObserver.activateStateStreamController.stream;
-  Stream<PairedDeviceInfo> get pairedDeviceInfoStream =>
+  Stream<PairedDeviceInfo> get pairedDeviceInfoChanged =>
       _watchOSObserver.pairedDeviceInfoStreamController.stream;
-  Stream<Map<String, dynamic>> get messageStream =>
+  Stream<Message> get messageReceived =>
       _watchOSObserver.messageStreamController.stream;
-  Stream<bool> get reachabilityStream =>
+  Stream<bool> get reachabilityChanged =>
       _watchOSObserver.reachabilityStreamController.stream;
-  Stream<ApplicationContext> get applicationContextStream =>
+  Stream<ApplicationContext> get applicationContextUpdated =>
       _watchOSObserver.applicationContextStreamController.stream;
-  Stream<Map<String, dynamic>> get userInfoStream =>
+  Stream<Map<String, dynamic>> get userInfoReceived =>
       _watchOSObserver.userInfoStreamController.stream;
   Stream<MainError> get errorStream =>
       _watchOSObserver.errorStreamController.stream;
-  Stream<List<UserInfoTransfer>> get onProgressUserInfoTransferListStream =>
+  Stream<List<UserInfoTransfer>> get pendingUserInfoTransferListChanged =>
       _watchOSObserver.onProgressUserInfoTransferListStreamController.stream;
-  Stream<UserInfoTransfer> get userInfoTransferDidFinishStream =>
+  Stream<UserInfoTransfer> get userInfoTransferDidFinish =>
       _watchOSObserver.userInfoTransferFinishedStreamController.stream;
-  Stream<File> get fileStream =>
+  Stream<File> get fileReceived =>
       _watchOSObserver.fileInfoStreamController.stream;
 
   @override

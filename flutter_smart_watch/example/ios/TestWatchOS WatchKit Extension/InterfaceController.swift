@@ -13,6 +13,7 @@ class InterfaceController: WKInterfaceController {
    
     @IBOutlet weak var image: WKInterfaceImage!
     var watchSession: WCSession?
+    @IBOutlet weak var messageLabel: WKInterfaceLabel!
     
     override func awake(withContext context: Any?) {
         watchSession = WCSession.default
@@ -28,18 +29,40 @@ class InterfaceController: WKInterfaceController {
         // This method is called when watch view controller is no longer visible
     }
     
-    @IBAction func onButtonPressed() {
-        if let path = Bundle.main.path(forResource: "download", ofType: "jpeg"){
-            let fileUrl = NSURL.fileURL(withPath: path)
-            self.watchSession?.transferFile(fileUrl, metadata: ["count": 1])
+    @IBAction func sendMessagePressed() {
+        self.watchSession?.sendMessage(["message": "This is a message send from WatchOS app at \(Date().timeIntervalSince1970)"]){replyMessage in
+            if let message = replyMessage["message"] as? String{
+                self.messageLabel.setText(message)
+            }
+           
         }
-       
+    }
+    
+    
+    @IBAction func updateApplicationContextPressed() {
+        do{
+            try self.watchSession?.updateApplicationContext(["message": "Application context updated by WatchOS app at \(Date().timeIntervalSince1970)"])
+        }catch{
+            print(error.localizedDescription)
+        }
+    }
+    
+    @IBAction func transferUserInfoPressed() {
+        watchSession!.transferUserInfo(["message": "User info sended by WatchOS app at \(Date().timeIntervalSince1970)"])
     }
 }
 
 extension InterfaceController: WCSessionDelegate{
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         
+    }
+    
+    func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
+        
+    }
+    
+    func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
+        replyHandler(["message": "Message received on SmartWatch at \(Date().timeIntervalSince1970)"])
     }
     
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
