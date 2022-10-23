@@ -8,6 +8,7 @@ typealias ProgressHandler = (Int) -> Void
 public class SwiftFlutterSmartWatchIosPlugin: NSObject, FlutterPlugin {
     private var watchSession: WCSession?
     private var callbackChannel: FlutterMethodChannel
+    private var fileProgressTimers: [String: Timer] = [:]
     
     private var messageReplyHandlers:  [String: ([String : Any]) -> Void] = [:]
     
@@ -129,35 +130,43 @@ public class SwiftFlutterSmartWatchIosPlugin: NSObject, FlutterPlugin {
                 self.callbackChannel.invokeMethod("onPendingFileTransferListChanged", arguments: self.watchSession?.outstandingFileTransfers.map{
                     $0.toRawTransferDict()
                 })
-//                if let progressHandlerId = arguments["progressHandlerId"] as? String{
-//                    let progressHandler: ProgressHandler = {progress in
-//                        var arguments: [String: Any] = [:]
-//                        arguments["currentProgress"] = progress
-//                        arguments["progressHandlerId"] = progressHandlerId
-//                        self.callbackChannel.invokeMethod("onFileProgressChanged", arguments: arguments)
-//                    }
-//                    if #available(iOS 10.0, *) {
-//                        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true){timer in
-//                            if #available(iOS 12.0, *) {
-//                                if transfer.progress.isCancelled || transfer.progress.isFinished{
-//                                    timer.invalidate()
-//                                }
-//                            } else {
-//                                timer.invalidate()
-//                                // Fallback on earlier versions
-//                            }
-//                            if #available(iOS 12.0, *) {
-//                                let currentProgressValue = transfer.progress.completedUnitCount
-//                                print(currentProgressValue)
-//                                progressHandler(Int(currentProgressValue))
-//                            } else {
-//
-//                            }
-//                        }
-//                    } else {
-//                        // Fallback on earlier versions
-//                    }
-//                }
+                return
+            }
+            result(nil)
+        case "setFileTransferProgressListener":
+            checkForWatchSession(result: result)
+            if let transferId = call.arguments as? String{
+                if let timer = fileProgressTimers[transferId]{
+                    timer.invalidate()
+                    fileProgressTimers.removeValue(forKey: transferId)
+                }
+                if let transfer = watchSession!.outstandingFileTransfers.first(where: { transfer in
+                    transfer.file.metadata != nil && transfer.file.metadata!.contains{key, value in
+                        key == "id" && value is String && (value as! String) == transferId
+                    }
+                }){
+                    if #available(iOS 10.0, *) {
+                      fileProgressTimers[transferId] = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true){timer in
+                            if #available(iOS 12.0, *) {
+                                if transfer.progress.isCancelled || transfer.progress.isFinished{
+                                    timer.invalidate()
+                                }
+                            } else {
+                                timer.invalidate()
+                                // Fallback on earlier versions
+                            }
+                            if #available(iOS 12.0, *) {
+                                self.callbackChannel.invokeMethod("onFileProgressChanged", arguments: ["transferId": transferId, "progress": transfer.progress.toProgressDict()])
+                            }
+                          print(self.fileProgressTimers)
+                        }
+                    }
+                    
+                } else{
+                    handleFlutterError(result: result, message: "No transfer found, please try again")
+                }
+            } else{
+                handleFlutterError(result: result, message: "No transfer id specified, please try again")
             }
             result(nil)
         case "getOnProgressFileTransfers":
@@ -187,6 +196,10 @@ public class SwiftFlutterSmartWatchIosPlugin: NSObject, FlutterPlugin {
         case "cancelFileTransfer":
             checkForWatchSession(result: result)
             if let transferId = call.arguments as? String{
+                if let timer = fileProgressTimers[transferId]{
+                    timer.invalidate()
+                    fileProgressTimers.removeValue(forKey: transferId)
+                }
                 if let transfer = watchSession!.outstandingFileTransfers.first(where: { transfer in
                     transfer.file.metadata != nil && transfer.file.metadata!.contains{key, value in
                         key == "id" && value is String && (value as! String) == transferId
@@ -299,7 +312,10 @@ extension SwiftFlutterSmartWatchIosPlugin: WCSessionDelegate{
             return
         }
         callbackChannel.invokeMethod("onFileTransferDidFinish", arguments: fileTransfer.toRawTransferDict())
-        
+        if let metadata = fileTransfer.file.metadata, let transferId = metadata["id"] as? String, let timer = fileProgressTimers[transferId]{
+            timer.invalidate()
+            fileProgressTimers.removeValue(forKey: transferId)
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: {
             self.callbackChannel.invokeMethod("onPendingFileTransferListChanged", arguments: self.watchSession!.outstandingFileTransfers.map{
                 $0.toRawTransferDict()
@@ -392,9 +408,20 @@ extension WCSession{
     }
 }
 
+extension Progress{
+    func toProgressDict()-> [String: Any]{
+        var dict:  [String: Any] = [:]
+        dict["currentProgress"] = self.completedUnitCount
+        if let estimatedTimeRemaining = self.estimatedTimeRemaining{
+            dict["estimateTimeRemaining"] = Int((estimatedTimeRemaining.truncatingRemainder(dividingBy: 1)) * 1000)
+        }
+        return dict
+    }
+}
+
 func randomString(length: Int) -> String {
-  let letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-  return String((0..<length).map{ _ in letters.randomElement()! })
+    let letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    return String((0..<length).map{ _ in letters.randomElement()! })
 }
 
 

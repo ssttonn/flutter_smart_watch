@@ -198,8 +198,14 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
       _metadataInJson.remove("id");
     }
     FileTransfer _fileTransfer = FileTransfer.fromJson(json);
-    _fileTransfer.cancel =
-        () => channel.invokeMethod("cancelFileTransfer", _fileTransfer.id);
+    _fileTransfer.cancel = () {
+      _fileTransfer.setOnProgressListener = (p0) {};
+      return channel.invokeMethod("cancelFileTransfer", _fileTransfer.id);
+    };
+    _fileTransfer.setOnProgressListener = (onProgressChanged) {
+      _watchOSObserver.progressHandlers[_fileTransfer.id] = onProgressChanged;
+      channel.invokeMethod("setFileTransferProgressListener", _fileTransfer.id);
+    };
     return _fileTransfer;
   }
 

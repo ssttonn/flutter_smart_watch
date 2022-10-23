@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:flutter_smart_watch_ios/src/helpers/utils.dart';
 // import 'package:json_annotation/json_annotation.dart';
 
@@ -21,6 +22,8 @@ class FileTransfer {
   // @JsonKey(ignore:  true)
   Future<void> Function() cancel = () async {};
 
+  void Function(void Function(Progress)) setOnProgressListener = ((p0) {});
+
   FileTransfer(
       {required this.id,
       required this.file,
@@ -28,4 +31,17 @@ class FileTransfer {
       this.metadata});
   factory FileTransfer.fromJson(Map<String, dynamic> json) =>
       _$FileTransferFromJson(json);
+}
+
+class Progress {
+  final int currentProgress;
+  final int estimateTimeLeft;
+
+  Progress({required this.currentProgress, required this.estimateTimeLeft});
+
+  factory Progress.fromJson(Map<String, dynamic> json) {
+    return Progress(
+        currentProgress: json['currentProgress'] as int? ?? 0,
+        estimateTimeLeft: json["estimateTimeRemaining"] as int? ?? 0);
+  }
 }

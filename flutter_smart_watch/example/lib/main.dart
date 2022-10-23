@@ -120,11 +120,21 @@ class _MyAppState extends State<MyApp> {
     _flutterSmartWatchPlugin.getOnProgressFileTransfers().then((transfers) {
       setState(() {
         _filePendingTransfers = transfers;
+        _filePendingTransfers.forEach((transfer) {
+          transfer.setOnProgressListener((progress) {
+            print("${transfer.id}: ${progress.currentProgress}");
+          });
+        });
       });
     });
     _flutterSmartWatchPlugin.pendingFileTransferListChanged.listen((transfers) {
       setState(() {
         _filePendingTransfers = transfers;
+        _filePendingTransfers.forEach((transfer) {
+          transfer.setOnProgressListener((progress) {
+            print("${transfer.id}: ${progress.currentProgress}");
+          });
+        });
       });
     });
     _flutterSmartWatchPlugin.fileTransferDidFinish.listen((transfer) {
@@ -380,7 +390,12 @@ class _MyAppState extends State<MyApp> {
                 XFile? _file =
                     await ImagePicker().pickImage(source: ImageSource.gallery);
                 if (_file != null) {
-                  _flutterSmartWatchPlugin.transferFileInfo(File(_file.path));
+                  FileTransfer? _fileTransfer = await _flutterSmartWatchPlugin
+                      .transferFileInfo(File(_file.path));
+                  if (_fileTransfer?.setOnProgressListener != null)
+                    _fileTransfer?.setOnProgressListener(((progress) {
+                      print("${_fileTransfer.id}: ${progress.currentProgress}");
+                    }));
                 }
               }),
             ]));

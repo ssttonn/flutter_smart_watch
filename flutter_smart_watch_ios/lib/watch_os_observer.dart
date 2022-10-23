@@ -16,7 +16,7 @@ import 'src/models/file_transfer.dart';
 typedef MessageReplyHandler = Future<void> Function(
     Map<String, dynamic> message);
 
-typedef ProgressHandler = Function(double);
+typedef ProgressHandler = Function(Progress);
 
 class WatchOSObserver {
   late StreamController<ActivationState> activateStateStreamController;
@@ -171,16 +171,16 @@ class WatchOSObserver {
           fileTransferDidFinishStreamController.add(_fileTransfer);
         }
         break;
-
-      // case "onFileProgressChanged":
-      //   var arguments = call.arguments;
-      //   if (arguments != null && arguments is Map) {
-      //     var handlerId = arguments["progressHandlerId"];
-      //     var currentProgress = arguments["currentProgress"] as int? ?? 0;
-      //     // * add received file to global stream
-      //     progressHandlers[handlerId]?.call(currentProgress.toDouble());
-      //   }
-      //   break;
+      case "onFileProgressChanged":
+        Map<String, dynamic> arguments = (call.arguments as Map? ?? {})
+            .map((key, value) => MapEntry(key.toString(), value));
+        if (arguments["transferId"] != null) {
+          Progress progress = Progress.fromJson(
+              (arguments["progress"] as Map? ?? {})
+                  .map((key, value) => MapEntry(key.toString(), value)));
+          progressHandlers[arguments["transferId"]]?.call(progress);
+        }
+        break;
       case "onError":
         if (call.arguments != null) {
           errorStreamController
@@ -215,6 +215,10 @@ class WatchOSObserver {
     FileTransfer _fileTransfer = FileTransfer.fromJson(json);
     _fileTransfer.cancel =
         () => channel.invokeMethod("cancelFileTransfer", _fileTransfer.id);
+    _fileTransfer.setOnProgressListener = (onProgressChanged) {
+      progressHandlers[_fileTransfer.id] = onProgressChanged;
+      channel.invokeMethod("setFileTransferProgressListener", _fileTransfer.id);
+    };
     return _fileTransfer;
   }
 
