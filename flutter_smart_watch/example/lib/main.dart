@@ -5,7 +5,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flutter_smart_watch/flutter_smart_watch.dart';
-import 'package:flutter_smart_watch_example/widgets/spacing_column.dart';
+import 'package:image_picker/image_picker.dart';
+
+import 'widgets/spacing_column.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +35,9 @@ class _MyAppState extends State<MyApp> {
 
   Map<String, dynamic> _receivedUserInfo = new Map();
   List<UserInfoTransfer> _userInfoPendingTransfers = [];
+
+  Map<String, dynamic> _receivedFileData = new Map();
+  List<FileTransfer> _filePendingTransfers = [];
 
   ActivationState _activationState = ActivationState.notActivated;
 
@@ -103,6 +108,28 @@ class _MyAppState extends State<MyApp> {
         _userInfoPendingTransfers = transfers;
       });
     });
+    _flutterSmartWatchPlugin.userInfoTransferDidFinish.listen((transfer) {
+      inspect(transfer);
+    });
+
+    _flutterSmartWatchPlugin.fileReceived.listen((file) {
+      setState(() {
+        _receivedFileData = file;
+      });
+    });
+    _flutterSmartWatchPlugin.getOnProgressFileTransfers().then((transfers) {
+      setState(() {
+        _filePendingTransfers = transfers;
+      });
+    });
+    _flutterSmartWatchPlugin.pendingFileTransferListChanged.listen((transfers) {
+      setState(() {
+        _filePendingTransfers = transfers;
+      });
+    });
+    _flutterSmartWatchPlugin.fileTransferDidFinish.listen((transfer) {
+      inspect(transfer);
+    });
   }
 
   @override
@@ -128,7 +155,8 @@ class _MyAppState extends State<MyApp> {
               _pairedDeviceInfoSection(theme),
               _sendMessageSection(theme),
               _updateApplicationContextSession(theme),
-              _sendUserInfoSession(theme)
+              _sendUserInfoSession(theme),
+              _transferFileSession(theme),
             ],
           ),
         ),
@@ -138,31 +166,43 @@ class _MyAppState extends State<MyApp> {
 
   _pairedDeviceInfoSection(ThemeData theme) {
     return _section(theme,
-        child: Column(
+        child: SpacingColumn(
+          spacing: 5,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text("ActivationState: ${_activationState}",
-                style: theme.textTheme.headline6
-                    ?.copyWith(fontWeight: FontWeight.w600)),
-            Text("isReachable: ${_isReachable}",
+            Text("ActivationState: ",
                 style: theme.textTheme.headline6?.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: _isReachable ? Colors.greenAccent : Colors.red)),
-            Text("isPaired: ${_pairedDeviceInfo.isPaired}",
-                style: theme.textTheme.headline6
-                    ?.copyWith(fontWeight: FontWeight.w600)),
-            Text(
-                "isWatchAppInstalled: ${_pairedDeviceInfo.isWatchAppInstalled}",
-                style: theme.textTheme.headline6
-                    ?.copyWith(fontWeight: FontWeight.w600)),
-            Text(
-                "isComplicationEnabled: ${_pairedDeviceInfo.isComplicationEnabled}",
-                style: theme.textTheme.headline6
-                    ?.copyWith(fontWeight: FontWeight.w600)),
-            Text(
-                "watchDirectoryURL: ${_pairedDeviceInfo.watchDirectoryURL?.path}",
-                style: theme.textTheme.headline6
-                    ?.copyWith(fontWeight: FontWeight.w600))
+                    color: theme.colorScheme.primary)),
+            Text("${_activationState}"),
+            Text("isReachable: ",
+                style: theme.textTheme.headline6?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary)),
+            Text("${_isReachable}",
+                style: theme.textTheme.subtitle2?.copyWith(
+                    color:
+                        _isReachable ? Colors.greenAccent : Colors.redAccent)),
+            Text("isPaired: ",
+                style: theme.textTheme.headline6?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary)),
+            Text("${_pairedDeviceInfo.isPaired}"),
+            Text("isWatchAppInstalled: ",
+                style: theme.textTheme.headline6?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary)),
+            Text("${_pairedDeviceInfo.isWatchAppInstalled}"),
+            Text("isComplicationEnabled: ",
+                style: theme.textTheme.headline6?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary)),
+            Text("${_pairedDeviceInfo.isComplicationEnabled}"),
+            Text("watchDirectoryURL: ",
+                style: theme.textTheme.headline6?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary)),
+            Text("${_pairedDeviceInfo.watchDirectoryURL?.path}")
           ],
         ));
   }
@@ -173,12 +213,16 @@ class _MyAppState extends State<MyApp> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: 10,
           children: [
-            Text("Message received: \n" + _currentMessage.toString(),
-                style: theme.textTheme.headline6
-                    ?.copyWith(fontWeight: FontWeight.w600)),
-            Text("Reply received: \n" + _currentReplyMessage.toString(),
-                style: theme.textTheme.headline6
-                    ?.copyWith(fontWeight: FontWeight.w600)),
+            Text("Message received: ",
+                style: theme.textTheme.headline6?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary)),
+            Text(_currentMessage.toString()),
+            Text("Reply received: ",
+                style: theme.textTheme.headline6?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary)),
+            Text(_currentReplyMessage.toString()),
             _button(theme, title: "Send Message", onPressed: () {
               if (_isReachable) {
                 _flutterSmartWatchPlugin.sendMessage(
@@ -208,16 +252,16 @@ class _MyAppState extends State<MyApp> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: 10,
           children: [
-            Text(
-                "Current application context: \n" +
-                    _applicationContext.current.toString(),
-                style: theme.textTheme.headline6
-                    ?.copyWith(fontWeight: FontWeight.w600)),
-            Text(
-                "Received application context: \n" +
-                    _applicationContext.received.toString(),
-                style: theme.textTheme.headline6
-                    ?.copyWith(fontWeight: FontWeight.w600)),
+            Text("Current application context:  ",
+                style: theme.textTheme.headline6?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary)),
+            Text(_applicationContext.current.toString()),
+            Text("Received application context:  ",
+                style: theme.textTheme.headline6?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary)),
+            Text(_applicationContext.received.toString()),
             _button(theme, title: "Update Application Context", onPressed: () {
               _flutterSmartWatchPlugin.updateApplicationContext({
                 "message":
@@ -234,12 +278,15 @@ class _MyAppState extends State<MyApp> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: 10,
           children: [
-            Text("Received user info: \n" + _receivedUserInfo.toString(),
-                style: theme.textTheme.headline6
-                    ?.copyWith(fontWeight: FontWeight.w600)),
-            Text("Pending user info transfers: \n",
-                style: theme.textTheme.headline6
-                    ?.copyWith(fontWeight: FontWeight.w600)),
+            Text("Received user info: ",
+                style: theme.textTheme.headline6?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary)),
+            Text(_receivedUserInfo.toString()),
+            Text("Pending user info transfers: ",
+                style: theme.textTheme.headline6?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary)),
             ..._userInfoPendingTransfers.map((transfer) => Row(
                   children: [
                     Expanded(
@@ -261,7 +308,11 @@ class _MyAppState extends State<MyApp> {
                           ),
                         ),
                         onPressed: (() async {
-                          await transfer.cancel();
+                          try {
+                            await transfer.cancel();
+                          } catch (e) {
+                            print(e);
+                          }
                         }))
                   ],
                 )),
@@ -273,6 +324,66 @@ class _MyAppState extends State<MyApp> {
             }),
           ],
         ));
+  }
+
+  _transferFileSession(ThemeData theme) {
+    return _section(theme,
+        child: SpacingColumn(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 10,
+            children: [
+              Text("Received file: ",
+                  style: theme.textTheme.headline6?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.primary)),
+              if (_receivedFileData["file"] != null)
+                Image.file(_receivedFileData["file"]),
+              Text("Metadata: ",
+                  style: theme.textTheme.headline6?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.primary)),
+              Text("${_receivedFileData["metadata"] ?? ""}"),
+              Text("Pending file transfers: ",
+                  style: theme.textTheme.headline6?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.primary)),
+              ..._filePendingTransfers.map((transfer) => Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                            "${transfer.id}: " + transfer.file.toString(),
+                            style: theme.textTheme.headline6
+                                ?.copyWith(fontWeight: FontWeight.w600)),
+                      ),
+                      CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          child: Container(
+                            padding: EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                borderRadius: BorderRadius.circular(100)),
+                            child: Icon(
+                              Icons.delete,
+                              color: Colors.white,
+                            ),
+                          ),
+                          onPressed: (() async {
+                            try {
+                              await transfer.cancel();
+                            } catch (e) {
+                              print(e);
+                            }
+                          }))
+                    ],
+                  )),
+              _button(theme, title: "Transfer file", onPressed: () async {
+                XFile? _file =
+                    await ImagePicker().pickImage(source: ImageSource.gallery);
+                if (_file != null) {
+                  _flutterSmartWatchPlugin.transferFileInfo(File(_file.path));
+                }
+              }),
+            ]));
   }
 
   _section(ThemeData theme, {required Widget child}) {

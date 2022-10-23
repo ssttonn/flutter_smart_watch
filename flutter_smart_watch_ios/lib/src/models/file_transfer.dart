@@ -15,8 +15,17 @@ class FileTransfer {
   // @JsonKey(defaultValue: false)
   final bool isTransfering;
 
+  // @JsonKey(fromJson: fromRawMapToMapStringKeys)
+  final Map<String, dynamic>? metadata;
+
+  // @JsonKey(ignore:  true)
+  Future<void> Function() cancel = () async {};
+
   FileTransfer(
-      {required this.id, required this.file, this.isTransfering = false});
+      {required this.id,
+      required this.file,
+      this.isTransfering = false,
+      this.metadata});
   factory FileTransfer.fromJson(Map<String, dynamic> json) =>
       _$FileTransferFromJson(json);
 }

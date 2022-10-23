@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:math';
 
+import '../models/user_info_transfer.dart';
+
 const _chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890';
 Random _rnd = Random();
 

@@ -113,13 +113,14 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
     var _rawUserInfoTransfer = await channel.invokeMethod("transferUserInfo",
         {"userInfo": userInfo, "isComplication": isComplication});
     if (_rawUserInfoTransfer != null && _rawUserInfoTransfer is Map) {
-      return _mapIdAndConvert(_rawUserInfoTransfer.map<String, dynamic>(
-          (key, value) => MapEntry(key.toString(), value)));
+      return _mapIdAndConvertUserInfoTransfer(
+          _rawUserInfoTransfer.map<String, dynamic>(
+              (key, value) => MapEntry(key.toString(), value)));
     }
     return null;
   }
 
-  UserInfoTransfer _mapIdAndConvert(Map<String, dynamic> json) {
+  UserInfoTransfer _mapIdAndConvertUserInfoTransfer(Map<String, dynamic> json) {
     if (json.containsKey("userInfo") && json["userInfo"] is Map) {
       Map<String, dynamic> userInfoInJson = (json["userInfo"] as Map)
           .map((key, value) => MapEntry(key.toString(), value));
@@ -144,8 +145,9 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
         .invokeMethod("getOnProgressUserInfoTransfers")
         .then((transfersJson) {
       return (transfersJson as List? ?? []).map((transferJson) {
-        return _mapIdAndConvert(transferJson.map<String, dynamic>(
-            (key, value) => MapEntry(key.toString(), value)));
+        return _mapIdAndConvertUserInfoTransfer(
+            transferJson.map<String, dynamic>(
+                (key, value) => MapEntry(key.toString(), value)));
       }).toList();
     });
   }
@@ -163,34 +165,42 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
   ///
   ///Return a [FileTransfer]
   Future<FileTransfer?> transferFileInfo(File file,
-      {ProgressHandler? onProgressChanged,
-      Map<String, dynamic> metadata = const {}}) async {
-    String? handlerId;
+      {Map<String, dynamic> metadata = const {}}) async {
     Map<String, dynamic> mMetadata = new Map<String, dynamic>.from(metadata);
-    if (onProgressChanged != null) {
-      handlerId = getRandomString(20);
-      _watchOSObserver.progressHandlers[handlerId] = onProgressChanged;
-    }
+
     mMetadata["id"] = getRandomString(20);
-    var _rawFileTransferInMap = await channel.invokeMethod("transferFileInfo", {
-      "filePath": file.path,
-      "metadata": mMetadata,
-      if (handlerId != null) "progressHandlerId": handlerId
-    });
+    var _rawFileTransferInMap = await channel.invokeMethod(
+        "transferFileInfo", {"filePath": file.path, "metadata": mMetadata});
     if (_rawFileTransferInMap != null && _rawFileTransferInMap is Map) {
       Map<String, dynamic> fileTransferInJson = _rawFileTransferInMap
           .map((key, value) => MapEntry(key.toString(), value));
-      if (fileTransferInJson.containsKey("metadata") &&
-          fileTransferInJson["metadata"] is Map) {
-        Map<String, dynamic> _metadataInJson =
-            (fileTransferInJson["metadata"] as Map)
-                .map((key, value) => MapEntry(key.toString(), value));
-        fileTransferInJson["id"] = _metadataInJson["id"];
-        _metadataInJson.remove("id");
-      }
-      return FileTransfer.fromJson(fileTransferInJson);
+      return _mapIdAndConvertFileTransfer(fileTransferInJson);
     }
     return null;
+  }
+
+  Future<List<FileTransfer>> getOnProgressFileTransfers() {
+    return channel
+        .invokeMethod("getOnProgressFileTransfers")
+        .then((transfersJson) {
+      return (transfersJson as List? ?? []).map((transferJson) {
+        return _mapIdAndConvertFileTransfer(transferJson.map<String, dynamic>(
+            (key, value) => MapEntry(key.toString(), value)));
+      }).toList();
+    });
+  }
+
+  FileTransfer _mapIdAndConvertFileTransfer(Map<String, dynamic> json) {
+    if (json.containsKey("metadata") && json["metadata"] is Map) {
+      Map<String, dynamic> _metadataInJson = (json["metadata"] as Map)
+          .map((key, value) => MapEntry(key.toString(), value));
+      json["id"] = _metadataInJson["id"];
+      _metadataInJson.remove("id");
+    }
+    FileTransfer _fileTransfer = FileTransfer.fromJson(json);
+    _fileTransfer.cancel =
+        () => channel.invokeMethod("cancelFileTransfer", _fileTransfer.id);
+    return _fileTransfer;
   }
 
   Stream<ActivationState> get activationStateChanged =>
@@ -211,8 +221,12 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
       _watchOSObserver.onProgressUserInfoTransferListStreamController.stream;
   Stream<UserInfoTransfer> get userInfoTransferDidFinish =>
       _watchOSObserver.userInfoTransferFinishedStreamController.stream;
-  Stream<File> get fileReceived =>
+  Stream<Map<String, dynamic>> get fileReceived =>
       _watchOSObserver.fileInfoStreamController.stream;
+  Stream<List<FileTransfer>> get pendingFileTransferListChanged =>
+      _watchOSObserver.onProgressFileTransferListStreamController.stream;
+  Stream<FileTransfer> get fileTransferDidFinish =>
+      _watchOSObserver.fileTransferDidFinishStreamController.stream;
 
   @override
   void dispose() {

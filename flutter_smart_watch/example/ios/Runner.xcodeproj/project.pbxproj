@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
+		5341C2862905036500B1901B /* sampleimage.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 5341C2852905036400B1901B /* sampleimage.jpg */; };
 		5342A18A28E7DD7700708817 /* Interface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 5342A18828E7DD7700708817 /* Interface.storyboard */; };
 		5342A18C28E7DD7800708817 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5342A18B28E7DD7800708817 /* Assets.xcassets */; };
 		5342A19228E7DD7800708817 /* TestWatchOS WatchKit Extension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5342A19128E7DD7800708817 /* TestWatchOS WatchKit Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -80,6 +81,7 @@
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
+		5341C2852905036400B1901B /* sampleimage.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = sampleimage.jpg; sourceTree = "<group>"; };
 		5342A18628E7DD7700708817 /* TestWatchOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TestWatchOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5342A18928E7DD7700708817 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Interface.storyboard; sourceTree = "<group>"; };
 		5342A18B28E7DD7800708817 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -144,6 +146,7 @@
 		5342A19528E7DD7800708817 /* TestWatchOS WatchKit Extension */ = {
 			isa = PBXGroup;
 			children = (
+				5341C2852905036400B1901B /* sampleimage.jpg */,
 				5342A19628E7DD7800708817 /* InterfaceController.swift */,
 				5342A19828E7DD7800708817 /* ExtensionDelegate.swift */,
 				5342A19A28E7DD7800708817 /* ComplicationController.swift */,
@@ -330,6 +333,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5342A19D28E7DD7900708817 /* Assets.xcassets in Resources */,
+				5341C2862905036500B1901B /* sampleimage.jpg in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

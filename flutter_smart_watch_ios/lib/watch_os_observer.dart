@@ -11,6 +11,7 @@ import 'package:flutter_smart_watch_ios/src/models/user_info_transfer.dart';
 
 import 'src/enums/activate_state.dart';
 import 'src/models/error.dart';
+import 'src/models/file_transfer.dart';
 
 typedef MessageReplyHandler = Future<void> Function(
     Map<String, dynamic> message);
@@ -28,7 +29,10 @@ class WatchOSObserver {
       onProgressUserInfoTransferListStreamController;
   late StreamController<UserInfoTransfer>
       userInfoTransferFinishedStreamController;
-  late StreamController<File> fileInfoStreamController;
+  late StreamController<Map<String, dynamic>> fileInfoStreamController;
+  late StreamController<List<FileTransfer>>
+      onProgressFileTransferListStreamController;
+  late StreamController<FileTransfer> fileTransferDidFinishStreamController;
   late StreamController<MainError> errorStreamController;
   late Map<String, MessageReplyHandler> replyHandlers;
   late Map<String, ProgressHandler> progressHandlers;
@@ -118,7 +122,7 @@ class WatchOSObserver {
             arguments is List &&
             arguments.every((transfer) => transfer is Map)) {
           List<UserInfoTransfer> _transfers = arguments.map((transferJson) {
-            return _mapIdAndConvert((transferJson as Map)
+            return _mapIdAndConvertUserInfoTransfer((transferJson as Map)
                 .map((key, value) => MapEntry(key.toString(), value)));
           }).toList();
           onProgressUserInfoTransferListStreamController.add(_transfers);
@@ -127,30 +131,56 @@ class WatchOSObserver {
       case "onUserInfoTransferDidFinish":
         var arguments = call.arguments;
         if (arguments != null && arguments is Map) {
-          UserInfoTransfer _userInfoTransfer = _mapIdAndConvert(
+          UserInfoTransfer _userInfoTransfer = _mapIdAndConvertUserInfoTransfer(
               arguments.map((key, value) => MapEntry(key.toString(), value)));
           userInfoTransferFinishedStreamController.add(_userInfoTransfer);
         }
         break;
       case "onFileReceived":
         var arguments = call.arguments;
-        if (arguments != null && arguments is String) {
+        if (arguments != null &&
+            arguments is Map &&
+            arguments["path"] != null) {
           //* get received file from path
-          var _receivedFile = File(arguments);
+          var _receivedFile = File(arguments["path"]);
 
           // * add received file to global stream
-          fileInfoStreamController.add(_receivedFile);
+          fileInfoStreamController.add({
+            "file": _receivedFile,
+            if (arguments["metadata"] != null) "metadata": arguments["metadata"]
+          });
         }
         break;
-      case "onFileProgressChanged":
+      case "onPendingFileTransferListChanged":
+        var arguments = call.arguments;
+        if (arguments != null &&
+            arguments is List &&
+            arguments.every((transfer) => transfer is Map)) {
+          List<FileTransfer> _transfers = arguments.map((transferJson) {
+            return _mapIdAndConvertFileTransfer((transferJson as Map)
+                .map((key, value) => MapEntry(key.toString(), value)));
+          }).toList();
+          onProgressFileTransferListStreamController.add(_transfers);
+        }
+        break;
+      case "onFileTransferDidFinish":
         var arguments = call.arguments;
         if (arguments != null && arguments is Map) {
-          var handlerId = arguments["progressHandlerId"];
-          var currentProgress = arguments["currentProgress"] as int? ?? 0;
-          // * add received file to global stream
-          progressHandlers[handlerId]?.call(currentProgress.toDouble());
+          FileTransfer _fileTransfer = _mapIdAndConvertFileTransfer(
+              arguments.map((key, value) => MapEntry(key.toString(), value)));
+          fileTransferDidFinishStreamController.add(_fileTransfer);
         }
         break;
+
+      // case "onFileProgressChanged":
+      //   var arguments = call.arguments;
+      //   if (arguments != null && arguments is Map) {
+      //     var handlerId = arguments["progressHandlerId"];
+      //     var currentProgress = arguments["currentProgress"] as int? ?? 0;
+      //     // * add received file to global stream
+      //     progressHandlers[handlerId]?.call(currentProgress.toDouble());
+      //   }
+      //   break;
       case "onError":
         if (call.arguments != null) {
           errorStreamController
@@ -160,7 +190,7 @@ class WatchOSObserver {
     }
   }
 
-  UserInfoTransfer _mapIdAndConvert(Map<String, dynamic> json) {
+  UserInfoTransfer _mapIdAndConvertUserInfoTransfer(Map<String, dynamic> json) {
     if (json.containsKey("userInfo") && json["userInfo"] is Map) {
       Map<String, dynamic> userInfoInJson = (json["userInfo"] as Map)
           .map((key, value) => MapEntry(key.toString(), value));
@@ -175,6 +205,19 @@ class WatchOSObserver {
     return _userInfoTransfer;
   }
 
+  FileTransfer _mapIdAndConvertFileTransfer(Map<String, dynamic> json) {
+    if (json.containsKey("metadata") && json["metadata"] is Map) {
+      Map<String, dynamic> _metadataInJson = (json["metadata"] as Map)
+          .map((key, value) => MapEntry(key.toString(), value));
+      json["id"] = _metadataInJson["id"];
+      _metadataInJson.remove("id");
+    }
+    FileTransfer _fileTransfer = FileTransfer.fromJson(json);
+    _fileTransfer.cancel =
+        () => channel.invokeMethod("cancelFileTransfer", _fileTransfer.id);
+    return _fileTransfer;
+  }
+
   initAllStreamControllers() {
     activateStateStreamController = StreamController.broadcast();
     pairedDeviceInfoStreamController = StreamController.broadcast();
@@ -187,6 +230,8 @@ class WatchOSObserver {
     userInfoTransferFinishedStreamController = StreamController.broadcast();
     errorStreamController = StreamController.broadcast();
     fileInfoStreamController = StreamController.broadcast();
+    onProgressFileTransferListStreamController = StreamController.broadcast();
+    fileTransferDidFinishStreamController = StreamController.broadcast();
     replyHandlers = new Map();
     progressHandlers = new Map();
   }
@@ -202,6 +247,8 @@ class WatchOSObserver {
     userInfoTransferFinishedStreamController.close();
     onProgressUserInfoTransferListStreamController.close();
     fileInfoStreamController.close();
+    onProgressFileTransferListStreamController.close();
+    fileTransferDidFinishStreamController.close();
     replyHandlers.clear();
     progressHandlers.clear();
   }

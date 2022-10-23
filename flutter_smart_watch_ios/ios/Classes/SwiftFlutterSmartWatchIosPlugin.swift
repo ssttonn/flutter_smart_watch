@@ -96,11 +96,11 @@ public class SwiftFlutterSmartWatchIosPlugin: NSObject, FlutterPlugin {
             checkForWatchSession(result: result)
             if let arguments = call.arguments as? [String: Any], let userInfo = arguments["userInfo"] as? [String: Any], let isComplication = arguments["isComplication"] as? Bool{
                 let userInfoTransfer = isComplication ? watchSession!.transferCurrentComplicationUserInfo(userInfo) : watchSession!.transferUserInfo(userInfo)
+                self.callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: self.watchSession?.outstandingUserInfoTransfers.map{
+                    $0.toRawTransferDict()
+                })
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: {
                     result(userInfoTransfer.toRawTransferDict())
-                    self.callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: self.watchSession?.outstandingUserInfoTransfers.map{
-                        $0.toRawTransferDict()
-                    })
                 })
                 return
                 
@@ -123,48 +123,77 @@ public class SwiftFlutterSmartWatchIosPlugin: NSObject, FlutterPlugin {
             if let arguments = call.arguments as? [String: Any], let path = arguments["filePath"] as? String, let metadata = arguments["metadata"] as? [String: Any]{
                 let url = URL.init(fileURLWithPath: path)
                 let transfer = watchSession!.transferFile(url, metadata: metadata)
-                result(transfer.toRawTransferDict())
-                if let progressHandlerId = arguments["progressHandlerId"] as? String{
-                    let progressHandler: ProgressHandler = {progress in
-                        var arguments: [String: Any] = [:]
-                        arguments["currentProgress"] = progress
-                        arguments["progressHandlerId"] = progressHandlerId
-                        self.callbackChannel.invokeMethod("onFileProgressChanged", arguments: arguments)
-                    }
-                    if #available(iOS 10.0, *) {
-                        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true){timer in
-                            if #available(iOS 12.0, *) {
-                                if transfer.progress.isCancelled || transfer.progress.isFinished{
-                                    timer.invalidate()
-                                }
-                            } else {
-                                timer.invalidate()
-                                // Fallback on earlier versions
-                            }
-                            if #available(iOS 12.0, *) {
-                                let currentProgressValue = transfer.progress.completedUnitCount
-                                print(currentProgressValue)
-                                progressHandler(Int(currentProgressValue))
-                            } else {
-                                
-                            }
-                        }
-                    } else {
-                        // Fallback on earlier versions
-                    }
-                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: {
+                    result(transfer.toRawTransferDict())
+                })
+                self.callbackChannel.invokeMethod("onPendingFileTransferListChanged", arguments: self.watchSession?.outstandingFileTransfers.map{
+                    $0.toRawTransferDict()
+                })
+//                if let progressHandlerId = arguments["progressHandlerId"] as? String{
+//                    let progressHandler: ProgressHandler = {progress in
+//                        var arguments: [String: Any] = [:]
+//                        arguments["currentProgress"] = progress
+//                        arguments["progressHandlerId"] = progressHandlerId
+//                        self.callbackChannel.invokeMethod("onFileProgressChanged", arguments: arguments)
+//                    }
+//                    if #available(iOS 10.0, *) {
+//                        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true){timer in
+//                            if #available(iOS 12.0, *) {
+//                                if transfer.progress.isCancelled || transfer.progress.isFinished{
+//                                    timer.invalidate()
+//                                }
+//                            } else {
+//                                timer.invalidate()
+//                                // Fallback on earlier versions
+//                            }
+//                            if #available(iOS 12.0, *) {
+//                                let currentProgressValue = transfer.progress.completedUnitCount
+//                                print(currentProgressValue)
+//                                progressHandler(Int(currentProgressValue))
+//                            } else {
+//
+//                            }
+//                        }
+//                    } else {
+//                        // Fallback on earlier versions
+//                    }
+//                }
             }
             result(nil)
+        case "getOnProgressFileTransfers":
+            checkForWatchSession(result: result)
+            result(watchSession!.outstandingFileTransfers.map{
+                $0.toRawTransferDict()
+            })
         case "cancelUserInfoTransfer":
             checkForWatchSession(result: result)
             if let transferId = call.arguments as? String{
-                if let transfer = watchSession?.outstandingUserInfoTransfers.first(where: { transfer in
+                if let transfer = watchSession!.outstandingUserInfoTransfers.first(where: { transfer in
                     transfer.userInfo.contains{key, value in
                         key == "id" && value is String && (value as! String) == transferId
                     }
                 }){
                     transfer.cancel()
                     self.callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: self.watchSession!.outstandingUserInfoTransfers.map{
+                        $0.toRawTransferDict()
+                    })
+                } else{
+                    handleFlutterError(result: result, message: "No transfer found, please try again")
+                }
+            } else{
+                handleFlutterError(result: result, message: "No transfer id specified, please try again")
+            }
+            result(nil)
+        case "cancelFileTransfer":
+            checkForWatchSession(result: result)
+            if let transferId = call.arguments as? String{
+                if let transfer = watchSession!.outstandingFileTransfers.first(where: { transfer in
+                    transfer.file.metadata != nil && transfer.file.metadata!.contains{key, value in
+                        key == "id" && value is String && (value as! String) == transferId
+                    }
+                }){
+                    transfer.cancel()
+                    self.callbackChannel.invokeMethod("onPendingFileTransferListChanged", arguments: self.watchSession!.outstandingFileTransfers.map{
                         $0.toRawTransferDict()
                     })
                 } else{
@@ -257,7 +286,7 @@ extension SwiftFlutterSmartWatchIosPlugin: WCSessionDelegate{
             return
         }
         callbackChannel.invokeMethod("onUserInfoTransferDidFinish", arguments: userInfoTransfer.toRawTransferDict())
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: {
             self.callbackChannel.invokeMethod("onPendingUserInfoTransferListChanged", arguments: self.watchSession!.outstandingUserInfoTransfers.map{
                 $0.toRawTransferDict()
             })
@@ -269,10 +298,17 @@ extension SwiftFlutterSmartWatchIosPlugin: WCSessionDelegate{
             handleCallbackError(message: error!.localizedDescription)
             return
         }
-        print(fileTransfer.file.fileURL)
+        callbackChannel.invokeMethod("onFileTransferDidFinish", arguments: fileTransfer.toRawTransferDict())
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: {
+            self.callbackChannel.invokeMethod("onPendingFileTransferListChanged", arguments: self.watchSession!.outstandingFileTransfers.map{
+                $0.toRawTransferDict()
+            })
+        })
     }
     
     public func session(_ session: WCSession, didReceive file: WCSessionFile) {
+        
         var tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
         tempURL.appendPathComponent(file.fileURL.lastPathComponent)
         do {
@@ -280,7 +316,12 @@ extension SwiftFlutterSmartWatchIosPlugin: WCSessionDelegate{
                 try FileManager.default.removeItem(atPath: tempURL.path)
             }
             try FileManager.default.moveItem(atPath: file.fileURL.path, toPath: tempURL.path)
-            callbackChannel.invokeMethod("onFileReceived", arguments: tempURL.path)
+            var fileDict: [String: Any] = ["path": tempURL.path]
+            if let metadata = file.metadata{
+                fileDict["metadata"] = metadata
+            }
+            
+            callbackChannel.invokeMethod("onFileReceived", arguments: fileDict)
         } catch {
             handleCallbackError(message: error.localizedDescription)
         }
@@ -331,6 +372,7 @@ extension WCSessionFileTransfer{
         return [
             "filePath": self.file.fileURL.path,
             "isTransferring": self.isTransferring,
+            "metadata": self.file.metadata as Any
         ]
     }
 }

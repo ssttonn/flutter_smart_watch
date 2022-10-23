@@ -10,11 +10,16 @@ class SpacingRow extends Row {
       super.crossAxisAlignment,
       super.textDirection,
       super.verticalDirection,
-      super.textBaseline, // NO DEFAULT: we don't know what the text's baseline should be
+      super.textBaseline,
+      bool leadSpacing = false,
+      bool tailSpacing = false,
       required List<Widget> children,
       double spacing = 0})
-      : super(
-            children: spacing > 0
-                ? children.addBetweenItems(SizedBox(width: spacing))
-                : children);
+      : super(children: [
+          if (leadSpacing) SizedBox(width: spacing),
+          ...spacing > 0
+              ? children.addBetweenItems(SizedBox(width: spacing))
+              : children,
+          if (tailSpacing) SizedBox(width: spacing)
+        ]);
 }
