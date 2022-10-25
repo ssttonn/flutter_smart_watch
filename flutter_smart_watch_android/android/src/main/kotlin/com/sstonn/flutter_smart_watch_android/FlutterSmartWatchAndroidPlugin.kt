@@ -1,10 +1,7 @@
 package com.sstonn.flutter_smart_watch_android
 
-import android.content.Context
-import android.util.Log
 import androidx.annotation.NonNull
 import com.google.android.gms.wearable.*
-import com.google.android.gms.wearable.CapabilityClient.FILTER_ALL
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -17,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.lang.Exception
 
 /** FlutterSmartWatchAndroidPlugin */
 class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
@@ -35,7 +33,6 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
     private lateinit var capabilityClient: CapabilityClient
 
     //Activity and context references
-    private lateinit var context: Context
     private var activityBinding: ActivityPluginBinding? = null
 
 
@@ -67,30 +64,84 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                     nodeClient = Wearable.getNodeClient(it.activity)
                     dataClient = Wearable.getDataClient(it.activity)
                     capabilityClient = Wearable.getCapabilityClient(it.activity)
-                    capabilityClient.addListener({ capabilityInfo ->
-                        Log.d("App: ",capabilityInfo.nodes.toString())
-                        callbackChannel.invokeMethod(
-                            "connectedNodesChanged",
-                            capabilityInfo.nodes.map { node -> node.toRawMap() })
-                    }, "flutter_smart_watch_connected_nodes")
                 }
                 result.success(null)
             }
-            "getConnectedNodes" -> {
+            "getConnectedDevices" -> {
                 scope.launch {
-                    var nodes = capabilityClient.getCapability("flutter_smart_watch_connected_nodes",
-                        FILTER_ALL).await().nodes
-                    Log.d("App: ", nodes.toString())
-                    result.success(nodes.map { it.toRawMap() })
+                    try{
+                        val nodes = nodeClient.connectedNodes.await()
+                        result.success(nodes.map { it.toRawMap() })
+                    }catch (_: Exception){
+                        handleFlutterError(result, "Can't retrieve connected devices, please try again")
+                    }
                 }
             }
-            "addNewCapacity" -> {
-                var newCapacityName: String? =
-                    (call.arguments as Map<String, Any>)["capacityName"] as String?
-                newCapacityName?.let {
+            "getCompanionPackageForDevice" -> {
+                val nodeId = call.arguments as String?
+                nodeId?.let {
                     scope.launch {
-                        capabilityClient.addLocalCapability(newCapacityName)
-                        result.success(null)
+                        try {
+                            val packageName: String =
+                                nodeClient.getCompanionPackageForNode(it).await()
+                            result.success(packageName)
+                        } catch (_: Exception) {
+                            handleFlutterError(result, "No companion package found for $nodeId")
+                        }
+
+                    }
+                }
+            }
+            "getLocalDeviceInfo" -> {
+                scope.launch {
+                    try {
+                        result.success(nodeClient.localNode.await().toRawMap())
+                    }catch (_: Exception){
+                        handleFlutterError(result, "Can't retrieve local device info, please try again")
+                    }
+                }
+            }
+            "findDeviceIdFromBluetoothAddress" -> {
+                val macAddress: String? = call.arguments as String?
+                macAddress?.let {
+                    scope.launch {
+                        try{
+                            result.success(nodeClient.getNodeId(it).await())
+                        }catch (_:Exception){
+                            result.success(null)
+                        }
+                    }
+                    return
+                }
+                result.success(null)
+            }
+            "registerNewCapability" -> {
+                val capabilityName: String? =
+                    call.arguments as String?
+                capabilityName?.let {
+                    scope.launch {
+                        try{
+                            capabilityClient.addLocalCapability(capabilityName)
+                            result.success(null)
+                        }catch (e: Exception){
+                            handleFlutterError(result, "Unable to register new capability, please try again")
+                        }
+                    }
+                    return
+                }
+                result.success(null)
+            }
+            "removeExistingCapability"->{
+                val capabilityName: String? =
+                    call.arguments as String?
+                capabilityName?.let {
+                    scope.launch {
+                        try{
+                            capabilityClient.removeLocalCapability(capabilityName)
+                            result.success(null)
+                        }catch (e: Exception){
+                            handleFlutterError(result, "Unable to remove capability, please try again")
+                        }
                     }
                     return
                 }
@@ -99,12 +150,16 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
         }
     }
 
+    private fun handleFlutterError(result: Result, message: String){
+        result.error("500", message, null)
+    }
+
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         this.activityBinding = binding
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
-        activityBinding = null;
+        activityBinding = null
     }
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
@@ -112,7 +167,7 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
     }
 
     override fun onDetachedFromActivity() {
-        activityBinding = null;
+        activityBinding = null
     }
 }
 

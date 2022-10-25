@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_watch/flutter_smart_watch.dart';
 
@@ -17,8 +19,18 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
   @override
   void initState() {
     super.initState();
-    _flutterSmartWatchPlugin.configureWearableAPI().then((_) {
-      _flutterSmartWatchPlugin.getConnectedNodes().then(print);
+    _flutterSmartWatchPlugin.configureWearableAPI().then((_) async {
+      List<DeviceInfo> _devices =
+          await _flutterSmartWatchPlugin.getConnectedDevices();
+      _devices.forEach((device) {
+        device.getCompanionPackageName().then(print);
+      });
+      DeviceInfo _localDevice = await _flutterSmartWatchPlugin.getLocalDevice();
+      inspect(_localDevice);
+      String? deviceId = await _flutterSmartWatchPlugin
+          .findDeviceIdFromBluetoothAddress("60:3A:AF:DF:F9:EE");
+      _flutterSmartWatchPlugin.removeExistingCapability("test");
+      print(deviceId);
     });
   }
 
