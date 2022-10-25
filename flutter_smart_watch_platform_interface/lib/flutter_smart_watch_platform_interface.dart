@@ -20,6 +20,10 @@ abstract class FlutterSmartWatchPlatformInterface extends PlatformInterface {
     throw UnimplementedError('initalize() has not been implemented.');
   }
 
+  Future<bool> isSupported() {
+    throw UnimplementedError('isSupported() has not been implemented.');
+  }
+
   void dispose() {
     throw UnimplementedError('dispose() has not been implemented.');
   }
@@ -33,6 +37,11 @@ class DefaultPlatformInterface implements FlutterSmartWatchPlatformInterface {
 
   @override
   Future initialize() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<bool> isSupported() {
     throw UnimplementedError();
   }
 }

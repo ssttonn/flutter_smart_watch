@@ -1,8 +1,7 @@
-import 'dart:async';
+adb forward tcp:4444 localabstract:/adb-hubimport 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_smart_watch_ios/channel.dart';
 import 'package:flutter_smart_watch_ios/src/models/application_context.dart';
 import 'package:flutter_smart_watch_ios/src/models/message.dart';
@@ -33,16 +32,11 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
   Future initialize() async {
     _watchOSObserver = WatchOSObserver();
     _watchOSObserver.initAllStreamControllers();
-    if (!(await _isSmartWatchSupported())) {
-      throw PlatformException(
-          code: "400",
-          message:
-              "Your device does not support connecting to a WatchOS device.");
-    }
   }
 
   /// Check if your IOS device is supported to connect with WatchOS device
-  Future<bool> _isSmartWatchSupported() async {
+  @override
+  Future<bool> isSupported() async {
     bool? isSupported = await channel.invokeMethod("isSupported");
     return isSupported ?? false;
   }
