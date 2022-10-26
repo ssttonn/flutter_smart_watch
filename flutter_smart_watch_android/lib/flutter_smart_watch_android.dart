@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter_smart_watch_android/channel.dart';
 import 'package:flutter_smart_watch_android/helpers/enums.dart';
 import 'package:flutter_smart_watch_android/models/capability_info.dart';
+import 'package:flutter_smart_watch_android/models/message.dart';
 import 'package:flutter_smart_watch_android/wear_os_observer.dart';
 import 'package:flutter_smart_watch_platform_interface/flutter_smart_watch_platform_interface.dart';
 
@@ -94,6 +97,15 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
     }
     return result ?? false;
   }
+
+  Future sendMessage(Uint8List data,
+      {required String deviceId, required String path}) {
+    return channel.invokeMethod(
+        "sendMessage", {"data": data, "nodeId": deviceId, "path": path});
+  }
+
+  Stream<Message> get messageReceived =>
+      _wearOSObserver.messageStreamController.stream;
 
   @override
   void dispose() {

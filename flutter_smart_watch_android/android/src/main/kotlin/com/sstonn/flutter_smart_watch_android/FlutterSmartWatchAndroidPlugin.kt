@@ -1,6 +1,9 @@
 package com.sstonn.flutter_smart_watch_android
 
+import android.content.ComponentName
 import android.content.Intent
+import android.content.ServiceConnection
+import android.os.IBinder
 import androidx.annotation.NonNull
 import com.google.android.gms.wearable.*
 import com.google.android.gms.wearable.CapabilityClient.FILTER_ALL
@@ -67,6 +70,9 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 // Initialize all clients
                 activityBinding?.let { it ->
                     messageClient = Wearable.getMessageClient(it.activity)
+                    messageClient.addListener {
+                        callbackChannel.invokeMethod("onMessageReceived", it.toRawData())
+                    }
                     nodeClient = Wearable.getNodeClient(it.activity)
                     dataClient = Wearable.getDataClient(it.activity)
                     capabilityClient = Wearable.getCapabilityClient(it.activity)
@@ -146,7 +152,9 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 val filterType = arguments["filterType"] as Int
                 scope.launch {
                     try {
-                        result.success(capabilityClient.getCapability(name, filterType).await().toRawMap())
+                        result.success(
+                            capabilityClient.getCapability(name, filterType).await().toRawMap()
+                        )
                     } catch (e: Exception) {
                         result.success(null)
                     }
@@ -181,7 +189,9 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 listeners[name]?.let {
                     scope.launch {
                         try {
-                            result.success(capabilityClient.removeListener(listeners[name]!!, name).await())
+                            result.success(
+                                capabilityClient.removeListener(listeners[name]!!, name).await()
+                            )
                         } catch (e: Exception) {
                             result.success(false)
 
@@ -229,9 +239,17 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 }
                 result.success(null)
             }
-            "sendMessage" ->{
+            "sendMessage" -> {
+                val arguments = call.arguments as Map<*, *>
+                val data = arguments["data"] as ByteArray
+                val nodeId = arguments["nodeId"] as String
+                val path = arguments["path"] as String
                 scope.launch {
-                   //TODO implement send message function
+                    try {
+                        messageClient.sendMessage(nodeId, path, data)
+                    }catch (e: Exception){
+                        handleFlutterError(result, "Unable to send message data, please try again")
+                    }
                 }
             }
         }
@@ -256,6 +274,15 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
     override fun onDetachedFromActivity() {
         activityBinding = null
     }
+}
+
+fun MessageEvent.toRawData(): Map<String, Any> {
+    return mapOf(
+        "data" to data,
+        "path" to path,
+        "requestId" to this.requestId,
+        "sourceNodeId" to this.sourceNodeId
+    )
 }
 
 fun Node.toRawMap(): Map<String, Any> {

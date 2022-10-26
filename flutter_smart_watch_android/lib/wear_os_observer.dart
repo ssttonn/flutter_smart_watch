@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_watch_android/channel.dart';
 import 'package:flutter_smart_watch_android/models/capability_info.dart';
-import 'package:flutter_smart_watch_android/models/connected_device_info.dart';
+import 'package:flutter_smart_watch_android/models/message.dart';
 
 typedef CapabilityChangedListener = Function(CapabilityInfo);
 
 class WearOSObserver {
-  late StreamController<Set<DeviceInfo>> connectedNodesStreamController;
+  late StreamController<Message> messageStreamController;
   Map<String, CapabilityChangedListener> capabilityListeners = Map();
   WearOSObserver() {
     callbackChannel.setMethodCallHandler(_methodCallhandler);
@@ -22,14 +22,19 @@ class WearOSObserver {
                 .map((key, value) => MapEntry(key.toString(), value)));
         capabilityListeners[_capabilityInfo.name]?.call(_capabilityInfo);
         break;
+      case "onMessageReceived":
+        Message _message = Message.fromJson((call.arguments as Map? ?? {})
+            .map((key, value) => MapEntry(key.toString(), value)));
+        messageStreamController.add(_message);
+        break;
     }
   }
 
   initAllStreamControllers() {
-    connectedNodesStreamController = StreamController.broadcast();
+    messageStreamController = StreamController.broadcast();
   }
 
   clearAllStreamControllers() {
-    connectedNodesStreamController.close();
+    messageStreamController.close();
   }
 }

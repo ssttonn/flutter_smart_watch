@@ -19,10 +19,9 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
   @override
   void initState() {
     super.initState();
-    _flutterSmartWatchPlugin.configureWearableAPI().then((_) async {
-      _flutterSmartWatchPlugin
-          .findCapabilityByName("flutter_smart_watch_connected_nodes")
-          .then(inspect);
+    _flutterSmartWatchPlugin.configureWearableAPI();
+    _flutterSmartWatchPlugin.messageReceived.listen((message) {
+      inspect(message);
     });
   }
 
