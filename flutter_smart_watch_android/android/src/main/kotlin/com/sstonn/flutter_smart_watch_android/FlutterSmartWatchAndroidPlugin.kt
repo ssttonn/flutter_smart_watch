@@ -1,7 +1,9 @@
 package com.sstonn.flutter_smart_watch_android
 
+import android.content.Intent
 import androidx.annotation.NonNull
 import com.google.android.gms.wearable.*
+import com.google.android.gms.wearable.CapabilityClient.FILTER_ALL
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -34,6 +36,10 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
 
     //Activity and context references
     private var activityBinding: ActivityPluginBinding? = null
+
+    //Listeners for capability changed
+    private var listeners: MutableMap<String, CapabilityClient.OnCapabilityChangedListener> =
+        mutableMapOf()
 
 
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
@@ -69,11 +75,14 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
             }
             "getConnectedDevices" -> {
                 scope.launch {
-                    try{
+                    try {
                         val nodes = nodeClient.connectedNodes.await()
                         result.success(nodes.map { it.toRawMap() })
-                    }catch (_: Exception){
-                        handleFlutterError(result, "Can't retrieve connected devices, please try again")
+                    } catch (_: Exception) {
+                        handleFlutterError(
+                            result,
+                            "Can't retrieve connected devices, please try again"
+                        )
                     }
                 }
             }
@@ -96,8 +105,11 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 scope.launch {
                     try {
                         result.success(nodeClient.localNode.await().toRawMap())
-                    }catch (_: Exception){
-                        handleFlutterError(result, "Can't retrieve local device info, please try again")
+                    } catch (_: Exception) {
+                        handleFlutterError(
+                            result,
+                            "Can't retrieve local device info, please try again"
+                        )
                     }
                 }
             }
@@ -105,52 +117,127 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 val macAddress: String? = call.arguments as String?
                 macAddress?.let {
                     scope.launch {
-                        try{
+                        try {
                             result.success(nodeClient.getNodeId(it).await())
-                        }catch (_:Exception){
+                        } catch (_: Exception) {
                             result.success(null)
                         }
                     }
                     return
                 }
                 result.success(null)
+            }
+            "getAllCapabilities" -> {
+                val filterType = call.arguments as Int
+                scope.launch {
+                    try {
+                        val capabilities =
+                            capabilityClient.getAllCapabilities(filterType)
+                                .await().entries.associate { it.key to it.value.toRawMap() }
+                        result.success(capabilities)
+                    } catch (e: Exception) {
+                        result.success(emptyMap<String, Map<String, Any>>())
+                    }
+                }
+            }
+            "findCapabilityByName" -> {
+                val arguments = call.arguments as Map<*, *>
+                val name = arguments["name"] as String
+                val filterType = arguments["filterType"] as Int
+                scope.launch {
+                    try {
+                        result.success(capabilityClient.getCapability(name, filterType).await().toRawMap())
+                    } catch (e: Exception) {
+                        result.success(null)
+                    }
+                }
+            }
+            "addCapabilityListener" -> {
+                val name = call.arguments as String
+                scope.launch {
+                    try {
+                        val newListener: CapabilityClient.OnCapabilityChangedListener =
+                            CapabilityClient.OnCapabilityChangedListener {
+                                callbackChannel.invokeMethod(
+                                    "onCapabilityChanged",
+                                    it.toRawMap()
+                                )
+                            }
+                        listeners[name] = newListener
+                        capabilityClient.removeListener(listeners[name]!!, name).await()
+                        capabilityClient.addListener(listeners[name]!!, name).await()
+                        result.success(null)
+                    } catch (e: Exception) {
+                        handleFlutterError(
+                            result,
+                            "Unable to listen to capability changed, please try again"
+                        )
+                    }
+
+                }
+            }
+            "removeCapabilityListener" -> {
+                val name = call.arguments as String
+                listeners[name]?.let {
+                    scope.launch {
+                        try {
+                            result.success(capabilityClient.removeListener(listeners[name]!!, name).await())
+                        } catch (e: Exception) {
+                            result.success(false)
+
+                        }
+                    }
+                    return
+                }
+                result.success(false)
             }
             "registerNewCapability" -> {
                 val capabilityName: String? =
                     call.arguments as String?
                 capabilityName?.let {
                     scope.launch {
-                        try{
+                        try {
                             capabilityClient.addLocalCapability(capabilityName)
                             result.success(null)
-                        }catch (e: Exception){
-                            handleFlutterError(result, "Unable to register new capability, please try again")
+                        } catch (e: Exception) {
+                            handleFlutterError(
+                                result,
+                                "Unable to register new capability, please try again"
+                            )
                         }
                     }
                     return
                 }
                 result.success(null)
             }
-            "removeExistingCapability"->{
+            "removeExistingCapability" -> {
                 val capabilityName: String? =
                     call.arguments as String?
                 capabilityName?.let {
                     scope.launch {
-                        try{
+                        try {
                             capabilityClient.removeLocalCapability(capabilityName)
                             result.success(null)
-                        }catch (e: Exception){
-                            handleFlutterError(result, "Unable to remove capability, please try again")
+                        } catch (e: Exception) {
+                            handleFlutterError(
+                                result,
+                                "Unable to remove capability, please try again"
+                            )
                         }
                     }
                     return
                 }
                 result.success(null)
             }
+            "sendMessage" ->{
+                scope.launch {
+                   //TODO implement send message function
+                }
+            }
         }
     }
 
-    private fun handleFlutterError(result: Result, message: String){
+    private fun handleFlutterError(result: Result, message: String) {
         result.error("500", message, null)
     }
 
@@ -176,5 +263,12 @@ fun Node.toRawMap(): Map<String, Any> {
         "name" to displayName,
         "isNearby" to isNearby,
         "id" to id
+    )
+}
+
+fun CapabilityInfo.toRawMap(): Map<String, Any> {
+    return mapOf(
+        "name" to this.name,
+        "associatedNodes" to this.nodes.map { it.toRawMap() }
     )
 }
