@@ -1,1 +1,3 @@
-enum FilterType { ALL, REACHABLE }
+enum CapabilityFilterType { ALL, REACHABLE }
+
+enum MessagePriority { LOW, HIGH }

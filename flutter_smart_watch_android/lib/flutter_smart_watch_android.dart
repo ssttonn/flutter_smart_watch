@@ -9,6 +9,8 @@ import 'package:flutter_smart_watch_platform_interface/flutter_smart_watch_platf
 
 import 'models/connected_device_info.dart';
 export 'models/connected_device_info.dart';
+export 'helpers/enums.dart';
+export 'models/message.dart';
 
 class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
   static registerWith() {
@@ -51,7 +53,7 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
   }
 
   Future<Map<String, CapabilityInfo>> getAllCapabilities(
-      {FilterType filterType = FilterType.ALL}) async {
+      {CapabilityFilterType filterType = CapabilityFilterType.ALL}) async {
     Map data =
         (await channel.invokeMethod("getAllCapabilities", filterType.index));
     return data.map((key, value) => MapEntry(
@@ -61,7 +63,7 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
   }
 
   Future<CapabilityInfo?> findCapabilityByName(String name,
-      {FilterType filterType = FilterType.ALL}) async {
+      {CapabilityFilterType filterType = CapabilityFilterType.ALL}) async {
     Map? data = (await channel.invokeMethod("findCapabilityByName",
         {"name": name, "filterType": filterType.index}));
     if (data == null) {
@@ -98,10 +100,16 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
     return result ?? false;
   }
 
-  Future sendMessage(Uint8List data,
-      {required String deviceId, required String path}) {
-    return channel.invokeMethod(
-        "sendMessage", {"data": data, "nodeId": deviceId, "path": path});
+  Future<int> sendMessage(Uint8List data,
+      {required String deviceId,
+      required String path,
+      MessagePriority priority = MessagePriority.LOW}) {
+    return (channel.invokeMethod<int>("sendMessage", {
+      "data": data,
+      "nodeId": deviceId,
+      "path": path,
+      "priority": priority.index
+    })).then((messageId) => messageId ?? -1);
   }
 
   Stream<Message> get messageReceived =>

@@ -1,12 +1,7 @@
 package com.sstonn.flutter_smart_watch_android
 
-import android.content.ComponentName
-import android.content.Intent
-import android.content.ServiceConnection
-import android.os.IBinder
 import androidx.annotation.NonNull
 import com.google.android.gms.wearable.*
-import com.google.android.gms.wearable.CapabilityClient.FILTER_ALL
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -41,8 +36,12 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
     private var activityBinding: ActivityPluginBinding? = null
 
     //Listeners for capability changed
-    private var listeners: MutableMap<String, CapabilityClient.OnCapabilityChangedListener> =
+    private var capabilityListeners: MutableMap<String, CapabilityClient.OnCapabilityChangedListener> =
         mutableMapOf()
+
+    //Listener for message received
+    private var messageListener: MessageClient.OnMessageReceivedListener? = null
+
 
 
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
@@ -70,12 +69,18 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 // Initialize all clients
                 activityBinding?.let { it ->
                     messageClient = Wearable.getMessageClient(it.activity)
-                    messageClient.addListener {
-                        callbackChannel.invokeMethod("onMessageReceived", it.toRawData())
+                    if (messageListener == null){
+                        messageListener = MessageClient.OnMessageReceivedListener{
+                            callbackChannel.invokeMethod("onMessageReceived", it.toRawData())
+                        }
                     }
                     nodeClient = Wearable.getNodeClient(it.activity)
                     dataClient = Wearable.getDataClient(it.activity)
                     capabilityClient = Wearable.getCapabilityClient(it.activity)
+                    scope.launch {
+                        messageClient.removeListener(messageListener!!).await()
+                        messageClient.addListener(messageListener!!).await()
+                    }
                 }
                 result.success(null)
             }
@@ -162,44 +167,11 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
             }
             "addCapabilityListener" -> {
                 val name = call.arguments as String
-                scope.launch {
-                    try {
-                        val newListener: CapabilityClient.OnCapabilityChangedListener =
-                            CapabilityClient.OnCapabilityChangedListener {
-                                callbackChannel.invokeMethod(
-                                    "onCapabilityChanged",
-                                    it.toRawMap()
-                                )
-                            }
-                        listeners[name] = newListener
-                        capabilityClient.removeListener(listeners[name]!!, name).await()
-                        capabilityClient.addListener(listeners[name]!!, name).await()
-                        result.success(null)
-                    } catch (e: Exception) {
-                        handleFlutterError(
-                            result,
-                            "Unable to listen to capability changed, please try again"
-                        )
-                    }
-
-                }
+                addNewListener(result, name)
             }
             "removeCapabilityListener" -> {
                 val name = call.arguments as String
-                listeners[name]?.let {
-                    scope.launch {
-                        try {
-                            result.success(
-                                capabilityClient.removeListener(listeners[name]!!, name).await()
-                            )
-                        } catch (e: Exception) {
-                            result.success(false)
-
-                        }
-                    }
-                    return
-                }
-                result.success(false)
+                removeListener(result, name)
             }
             "registerNewCapability" -> {
                 val capabilityName: String? =
@@ -244,15 +216,60 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 val data = arguments["data"] as ByteArray
                 val nodeId = arguments["nodeId"] as String
                 val path = arguments["path"] as String
+                val priority = arguments["priority"] as Int
                 scope.launch {
                     try {
-                        messageClient.sendMessage(nodeId, path, data)
+                        result.success(messageClient.sendMessage(nodeId, path, data, MessageOptions(priority)).await())
                     }catch (e: Exception){
-                        handleFlutterError(result, "Unable to send message data, please try again")
+                        handleFlutterError(result, e.localizedMessage)
                     }
                 }
             }
+
         }
+    }
+
+    private fun addNewListener(result: Result, name: String){
+        scope.launch {
+            try {
+                capabilityListeners[name]?.let {
+                    capabilityClient.removeListener(it, name).await()
+                }
+                val newListener: CapabilityClient.OnCapabilityChangedListener =
+                    CapabilityClient.OnCapabilityChangedListener {
+                        callbackChannel.invokeMethod(
+                            "onCapabilityChanged",
+                            it.toRawMap()
+                        )
+                    }
+                capabilityListeners[name] = newListener
+                capabilityClient.addListener(capabilityListeners[name]!!, name).await()
+                result.success(null)
+            } catch (e: Exception) {
+                handleFlutterError(
+                    result,
+                    "Unable to listen to capability changed, please try again"
+                )
+            }
+
+        }
+    }
+
+    private fun removeListener(result: Result, name: String){
+        capabilityListeners[name]?.let {
+            scope.launch {
+                try {
+                    result.success(
+                        capabilityClient.removeListener(it, name).await()
+                    )
+                } catch (e: Exception) {
+                    result.success(false)
+
+                }
+            }
+            return
+        }
+        result.success(false)
     }
 
     private fun handleFlutterError(result: Result, message: String) {
