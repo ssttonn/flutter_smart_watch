@@ -206,7 +206,7 @@ packages:
     source: hosted
     version: "4.0.1"
   image_picker:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: image_picker
       url: "https://pub.dartlang.org"

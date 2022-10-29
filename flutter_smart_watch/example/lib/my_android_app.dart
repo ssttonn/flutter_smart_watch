@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:typed_data';
 
 import 'package:flutter/cupertino.dart';
@@ -19,14 +20,20 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
   List<DeviceInfo> _deviceList = [];
   DeviceInfo? _selectedDevice;
   Message? _currentMessage;
+  DataItem? _dataItem;
 
   @override
   void initState() {
     super.initState();
     _flutterSmartWatchPlugin.configureWearableAPI().then((_) {
+      // _flutterSmartWatchPlugin.getConnectedDevices().then((devices) {
+      //   setState(() {
+      //     _deviceList = devices;
+      //   });
+      // });
       _flutterSmartWatchPlugin
           .findCapabilityByName("flutter_smart_watch_connected_nodes",
-              filterType: CapabilityFilterType.ALL)
+              filterType: CapabilityFilterType.all)
           .then((info) {
         _updateDeviceList((info?.associatedDevices ?? Set()).toList());
       });
@@ -34,6 +41,14 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
           "flutter_smart_watch_connected_nodes", (capabilityInfo) {
         _updateDeviceList((capabilityInfo.associatedDevices).toList());
       });
+      _flutterSmartWatchPlugin.dataEventsChanged.listen((items) {
+        inspect(items);
+      });
+      _flutterSmartWatchPlugin
+          .findDataItems(
+              uri: Uri(scheme: "wear", host: "*"),
+              filterType: DataUriFilterType.prefix)
+          .then(inspect);
     });
     _flutterSmartWatchPlugin.messageReceived.listen((message) {
       setState(() {
@@ -166,7 +181,40 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
                     .sendMessage(bytes,
                         deviceId: _selectedDevice!.id, path: "/sample-message")
                     .then(print);
-              })
+              }),
+          Text("Received data: ", style: theme.textTheme.headline6),
+          ..._dataItem != null
+              ? [
+                  Text("Raw Data: ${_dataItem!.data.toString()}"),
+                  Text(
+                      "Decrypted Data: ${String.fromCharCodes(_currentMessage!.data).toString()}"),
+                  Text("Data path: ${_dataItem!.uri.path}"),
+                ]
+              : [],
+          CupertinoButton(
+              padding: EdgeInsets.zero,
+              child: Container(
+                padding: EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                    color: theme.primaryColor,
+                    borderRadius: BorderRadius.circular(10)),
+                child: Text(
+                  "Sync current data",
+                  style:
+                      theme.textTheme.subtitle1?.copyWith(color: Colors.white),
+                ),
+              ),
+              onPressed: () {
+                _flutterSmartWatchPlugin
+                    .syncData(path: "/data-path-2", rawMapData: {
+                  "message":
+                      "Data sync by AndroidOS app at ${DateTime.now().millisecondsSinceEpoch}"
+                }).then((value) {
+                  _flutterSmartWatchPlugin
+                      .findDataItemFromUri(uri: value!.uri)
+                      .then(inspect);
+                });
+              }),
         ],
       ),
     );
