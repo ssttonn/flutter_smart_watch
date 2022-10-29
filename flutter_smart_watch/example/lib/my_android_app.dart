@@ -37,23 +37,15 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
           .then((info) {
         _updateDeviceList((info?.associatedDevices ?? Set()).toList());
       });
-      _flutterSmartWatchPlugin.addCapabilityListener(
-          "flutter_smart_watch_connected_nodes", (capabilityInfo) {
+      _flutterSmartWatchPlugin.addCapabilityListener((capabilityInfo) {
         _updateDeviceList((capabilityInfo.associatedDevices).toList());
-      });
-      _flutterSmartWatchPlugin.dataEventsChanged.listen((items) {
-        inspect(items);
-      });
+      }, name: "flutter_smart_watch_connected_nodes");
+
       _flutterSmartWatchPlugin
           .findDataItems(
               uri: Uri(scheme: "wear", host: "*"),
               filterType: DataUriFilterType.prefix)
           .then(inspect);
-    });
-    _flutterSmartWatchPlugin.messageReceived.listen((message) {
-      setState(() {
-        _currentMessage = message;
-      });
     });
   }
 

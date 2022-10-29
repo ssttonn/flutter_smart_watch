@@ -40,10 +40,12 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
         mutableMapOf()
 
     //Listener for message received
-    private var messageListener: MessageClient.OnMessageReceivedListener? = null
+    private var messageListeners: MutableMap<String, MessageClient.OnMessageReceivedListener?> =
+        mutableMapOf()
 
     //Listener for data changed
-    private var dataChangeListener: DataClient.OnDataChangedListener? = null
+    private var dataChangeListeners: MutableMap<String, DataClient.OnDataChangedListener?> =
+        mutableMapOf()
 
 
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
@@ -71,26 +73,9 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 // Initialize all clients
                 activityBinding?.let { it ->
                     messageClient = Wearable.getMessageClient(it.activity)
-                    if (messageListener == null) {
-                        messageListener = MessageClient.OnMessageReceivedListener {
-                            callbackChannel.invokeMethod("onMessageReceived", it.toRawData())
-                        }
-                    }
-                    if (dataChangeListener == null) {
-                        dataChangeListener = DataClient.OnDataChangedListener {
-                            callbackChannel.invokeMethod("onDataChanged", it.toRawMaps())
-                            it.release()
-                        }
-                    }
                     nodeClient = Wearable.getNodeClient(it.activity)
                     dataClient = Wearable.getDataClient(it.activity)
                     capabilityClient = Wearable.getCapabilityClient(it.activity)
-                    scope.launch {
-                        messageClient.removeListener(messageListener!!).await()
-                        messageClient.addListener(messageListener!!).await()
-                        dataClient.removeListener(dataChangeListener!!).await()
-                        dataClient.addListener(dataChangeListener!!).await()
-                    }
                 }
                 result.success(null)
             }
@@ -176,12 +161,23 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 }
             }
             "addCapabilityListener" -> {
-                val name = call.arguments as String
-                addNewListener(result, name)
+                val arguments = call.arguments as Map<*, *>
+                val name = arguments["name"] as String?
+                val path = arguments["path"] as String?
+                val filterType = arguments["filterType"] as Int?
+                if (name != null) {
+                    addNewCapabilityListener(result, name, null)
+                } else if (path != null) {
+                    addNewCapabilityListener(result, path, filterType)
+                }
             }
             "removeCapabilityListener" -> {
-                val name = call.arguments as String
-                removeListener(result, name)
+                val arguments = call.arguments as Map<*, *>
+                val name = arguments["name"] as String?
+                val path = arguments["path"] as String?
+                if (name != null || path != null) {
+                    removeCapabilityListener(result, (name ?: path)!!)
+                }
             }
             "registerNewCapability" -> {
                 val capabilityName: String? =
@@ -238,8 +234,27 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                             ).await()
                         )
                     } catch (e: Exception) {
-                        handleFlutterError(result, e.localizedMessage)
+                        handleFlutterError(result, e.message ?: "")
                     }
+                }
+            }
+            "addMessageListener" -> {
+                val arguments = call.arguments as Map<*, *>
+                val name = arguments["name"] as String?
+                val path = arguments["path"] as String?
+                val filterType = arguments["filterType"] as Int?
+                if (name != null) {
+                    addNewMessageListener(result, name, null)
+                } else if (path != null) {
+                    addNewMessageListener(result, path, filterType)
+                }
+            }
+            "removeMessageListener" -> {
+                val arguments = call.arguments as Map<*, *>
+                val name = arguments["name"] as String?
+                val path = arguments["path"] as String?
+                if (name != null || path != null) {
+                    removeMessageListener(result, (name ?: path)!!)
                 }
             }
             "findDataItem" -> {
@@ -261,7 +276,10 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                     try {
                         result.success(dataClient.getDataItems(Uri.parse(path)).await())
                     } catch (e: Exception) {
-                        handleFlutterError(result, "Unable to find data items associated with $path")
+                        handleFlutterError(
+                            result,
+                            "Unable to find data items associated with $path"
+                        )
                     }
                 }
             }
@@ -304,7 +322,6 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 val arguments = call.arguments as HashMap<*, *>
                 val path = arguments["path"] as String
                 val filterType = arguments["filterType"] as Int
-                Log.d("AndroidOS#DeleteItemsPath", path)
                 scope.launch {
                     try {
                         result.success(
@@ -335,27 +352,58 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                     }
                 }
             }
+            "addDataListener" -> {
+                val arguments = call.arguments as Map<*, *>
+                val name = arguments["name"] as String?
+                val path = arguments["path"] as String?
+                val filterType = arguments["filterType"] as Int?
+                if (name != null) {
+                    addNewDataListener(result, name, null)
+                } else if (path != null) {
+                    addNewDataListener(result, path, filterType)
+                }
+            }
+            "removeDataListener" -> {
+                val arguments = call.arguments as Map<*, *>
+                val name = arguments["name"] as String?
+                val path = arguments["path"] as String?
+                if (name != null || path != null) {
+                    removeDataListener(result, (name ?: path)!!)
+                }
+            }
             else -> {
                 result.notImplemented()
             }
         }
     }
 
-    private fun addNewListener(result: Result, name: String) {
+    private fun addNewCapabilityListener(result: Result, key: String, filterType: Int?) {
         scope.launch {
             try {
-                capabilityListeners[name]?.let {
-                    capabilityClient.removeListener(it, name).await()
+                capabilityListeners[key]?.let {
+                    capabilityClient.removeListener(it, key).await()
                 }
                 val newListener: CapabilityClient.OnCapabilityChangedListener =
                     CapabilityClient.OnCapabilityChangedListener {
                         callbackChannel.invokeMethod(
                             "onCapabilityChanged",
-                            it.toRawMap()
+                            mapOf(
+                                "key" to key,
+                                "data" to it.toRawMap()
+                            )
                         )
                     }
-                capabilityListeners[name] = newListener
-                capabilityClient.addListener(capabilityListeners[name]!!, name).await()
+                capabilityListeners[key] = newListener
+                if (filterType != null) {
+                    capabilityClient.addListener(
+                        capabilityListeners[key]!!,
+                        Uri.parse(key),
+                        filterType
+                    )
+                } else {
+                    capabilityClient.addListener(capabilityListeners[key]!!, key).await()
+                }
+
                 result.success(null)
             } catch (e: Exception) {
                 handleFlutterError(
@@ -367,12 +415,13 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
         }
     }
 
-    private fun removeListener(result: Result, name: String) {
-        capabilityListeners[name]?.let {
+    private fun removeCapabilityListener(result: Result, key: String) {
+        capabilityListeners[key]?.let {
             scope.launch {
                 try {
                     result.success(
-                        capabilityClient.removeListener(it, name).await()
+                        capabilityClient.removeListener(it)
+                            .await() || capabilityClient.removeListener(it, key).await()
                     )
                 } catch (e: Exception) {
                     result.success(false)
@@ -383,6 +432,110 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
         }
         result.success(false)
     }
+
+    private fun addNewMessageListener(result: Result, key: String, filterType: Int?) {
+        scope.launch {
+            try {
+                messageListeners[key]?.let {
+                    messageClient.removeListener(it).await()
+                }
+                val newListener: MessageClient.OnMessageReceivedListener =
+                    MessageClient.OnMessageReceivedListener {
+                        callbackChannel.invokeMethod(
+                            "onMessageReceived",
+                            mapOf(
+                                "key" to key,
+                                "data" to it.toRawData()
+                            )
+                        )
+                    }
+                messageListeners[key] = newListener
+                if (filterType == null) {
+                    messageClient.addListener(messageListeners[key]!!).await()
+                } else {
+                    messageClient.addListener(messageListeners[key]!!, Uri.parse(key), filterType)
+                        .await()
+                }
+                result.success(null)
+            } catch (e: Exception) {
+                handleFlutterError(
+                    result,
+                    "Unable to listen to capability changed, please try again"
+                )
+            }
+
+        }
+    }
+
+    private fun removeMessageListener(result: Result, key: String) {
+        messageListeners[key]?.let {
+            scope.launch {
+                try {
+                    result.success(
+                        messageClient.removeListener(it)
+                            .await()
+                    )
+                } catch (e: Exception) {
+                    result.success(false)
+
+                }
+            }
+            return
+        }
+        result.success(false)
+    }
+
+    private fun addNewDataListener(result: Result, key: String, filterType: Int?) {
+        scope.launch {
+            try {
+                dataChangeListeners[key]?.let {
+                    dataClient.removeListener(it).await()
+                }
+                val newListener: DataClient.OnDataChangedListener =
+                    DataClient.OnDataChangedListener {
+                        callbackChannel.invokeMethod(
+                            "onDataChanged",
+                            mapOf(
+                                "key" to key,
+                                "data" to it.toRawMaps()
+                            )
+                        )
+                    }
+                dataChangeListeners[key] = newListener
+                if (filterType == null) {
+                    dataClient.addListener(dataChangeListeners[key]!!).await()
+                } else {
+                    dataClient.addListener(dataChangeListeners[key]!!, Uri.parse(key), filterType)
+                        .await()
+                }
+                result.success(null)
+            } catch (e: Exception) {
+                handleFlutterError(
+                    result,
+                    "Unable to listen to capability changed, please try again"
+                )
+            }
+        }
+    }
+
+    private fun removeDataListener(result: Result, key: String) {
+        dataChangeListeners[key]?.let {
+            scope.launch {
+                try {
+                    result.success(
+                        dataClient.removeListener(it)
+                            .await()
+                    )
+                } catch (e: Exception) {
+                    result.success(false)
+
+                }
+            }
+            return
+        }
+        result.success(false)
+    }
+
 
     private fun handleFlutterError(result: Result, message: String) {
         result.error("500", message, null)
@@ -526,8 +679,9 @@ fun DataEventBuffer.toRawMaps(): List<Map<String, Any>> {
     return map {
         mapOf(
             "type" to it.type,
+            "dataItem" to it.dataItem.toRawMap(),
             "isDataValid" to it.isDataValid
-        ) + (if (it.dataItem != null) mapOf("dataItem" to it.dataItem.toRawMap()) else mapOf())
+        )
 
     }
 }

@@ -4,12 +4,10 @@ import 'package:flutter_smart_watch_android/channel.dart';
 import 'package:flutter_smart_watch_android/helpers/enums.dart';
 import 'package:flutter_smart_watch_android/models/capability_info.dart';
 import 'package:flutter_smart_watch_android/models/data_item.dart';
-import 'package:flutter_smart_watch_android/models/message.dart';
 import 'package:flutter_smart_watch_android/wear_os_observer.dart';
 import 'package:flutter_smart_watch_platform_interface/flutter_smart_watch_platform_interface.dart';
 
 import 'models/connected_device_info.dart';
-import 'models/data_event.dart';
 
 export 'models/connected_device_info.dart';
 export 'helpers/enums.dart';
@@ -27,7 +25,6 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
   @override
   Future initialize() async {
     _wearOSObserver = WearOSObserver();
-    _wearOSObserver.initAllStreamControllers();
   }
 
   @override
@@ -86,19 +83,37 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
     return channel.invokeMethod("removeExistingCapability", name);
   }
 
-  Future addCapabilityListener(
-      String name, CapabilityChangedListener listener) {
-    return channel.invokeMethod("addCapabilityListener", name).whenComplete(() {
-      _wearOSObserver.capabilityListeners[name] = listener;
+  Future addCapabilityListener(CapabilityChangedListener listener,
+      {String? name,
+      Uri? uri,
+      DataUriFilterType filterType = DataUriFilterType.literal}) {
+    if (name == null && uri == null) {
+      throw "Name or uri must be specified";
+    }
+    return channel
+        .invokeMethod(
+            "addCapabilityListener",
+            name != null
+                ? {
+                    "name": name,
+                  }
+                : {"path": uri.toString(), "filterType": filterType.index})
+        .then((_) {
+      _wearOSObserver.capabilityListeners[name ?? uri.toString()] = listener;
     });
   }
 
-  bool isCapabilityHasListener(String name) {
-    return _wearOSObserver.capabilityListeners.containsKey(name);
+  bool isCapabilityHasListener({String? name, Uri? uri}) {
+    return _wearOSObserver.capabilityListeners
+        .containsKey(name ?? uri.toString());
   }
 
-  Future<bool> removeCapabilityListener(String name) async {
-    final result = await channel.invokeMethod("removeCapabilityListener", name);
+  Future<bool> removeCapabilityListener({String? name, Uri? uri}) async {
+    if (name == null && uri == null) {
+      throw "Name or uri must be specified";
+    }
+    final result = await channel.invokeMethod("removeCapabilityListener",
+        name != null ? {"name": name} : {"path": uri.toString()});
     if (result) {
       _wearOSObserver.capabilityListeners.remove(name);
     }
@@ -115,6 +130,38 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
       "path": path,
       "priority": priority.index
     })).then((messageId) => messageId ?? -1);
+  }
+
+  Future addMessageListener(MessageReceivedListener listener,
+      {String? name,
+      Uri? uri,
+      DataUriFilterType filterType = DataUriFilterType.literal}) {
+    if (name == null && uri == null) {
+      throw "Name or uri must be specified";
+    }
+    return channel
+        .invokeMethod(
+            "addMessageListener",
+            name != null
+                ? {"name": name}
+                : {"path": uri.toString(), "filterType": filterType.index})
+        .then((_) {
+      _wearOSObserver.messageReceivedListeners[name ?? uri.toString()] =
+          listener;
+    });
+  }
+
+  Future removeMessageListener({String? name, Uri? uri}) {
+    if (name == null && uri == null) {
+      throw "Name or uri must be specified";
+    }
+    return channel
+        .invokeMethod("removeMessageListener",
+            name != null ? {"name": name} : {"path": uri.toString()})
+        .then((value) {
+      if (!value) return;
+      _wearOSObserver.messageReceivedListeners.remove(name ?? uri.toString());
+    });
   }
 
   Future<DataItem?> syncData(
@@ -164,13 +211,41 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
         .toList();
   }
 
-  Stream<Message> get messageReceived =>
-      _wearOSObserver.messageStreamController.stream;
-  Stream<List<DataEvent>> get dataEventsChanged =>
-      _wearOSObserver.dataEventsStreamController.stream;
+  Future addDataListener(DataChangedListener listener,
+      {String? name,
+      Uri? uri,
+      DataUriFilterType filterType = DataUriFilterType.literal}) {
+    if (name == null && uri == null) {
+      throw "Name or uri must be specified";
+    }
+    return channel
+        .invokeMethod(
+            "addDataListener",
+            name != null
+                ? {"name": name}
+                : {"path": uri.toString(), "filterType": filterType.index})
+        .then((_) {
+      _wearOSObserver.dataChangedListeners[name ?? uri.toString()] = listener;
+    });
+  }
+
+  Future removeDataListener({String? name, Uri? uri}) {
+    if (name == null && uri == null) {
+      throw "Name or uri must be specified";
+    }
+    return channel
+        .invokeMethod("emoveDataListener",
+            name != null ? {"name": name} : {"path": uri.toString()})
+        .then((value) {
+      if (!value) return;
+      _wearOSObserver.dataChangedListeners.remove(name ?? uri.toString());
+    });
+  }
 
   @override
   void dispose() {
-    _wearOSObserver.clearAllStreamControllers();
+    _wearOSObserver.capabilityListeners.clear();
+    _wearOSObserver.dataChangedListeners.clear();
+    _wearOSObserver.messageReceivedListeners.clear();
   }
 }
