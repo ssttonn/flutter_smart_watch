@@ -381,7 +381,7 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
         scope.launch {
             try {
                 capabilityListeners[key]?.let {
-                    capabilityClient.removeListener(it, key).await()
+                    capabilityClient.removeListener(it, key).await() || capabilityClient.removeListener(it).await()
                 }
                 val newListener: CapabilityClient.OnCapabilityChangedListener =
                     CapabilityClient.OnCapabilityChangedListener {
@@ -399,7 +399,7 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                         capabilityListeners[key]!!,
                         Uri.parse(key),
                         filterType
-                    )
+                    ).await()
                 } else {
                     capabilityClient.addListener(capabilityListeners[key]!!, key).await()
                 }

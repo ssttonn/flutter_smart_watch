@@ -37,15 +37,27 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
           .then((info) {
         _updateDeviceList((info?.associatedDevices ?? Set()).toList());
       });
+      _flutterSmartWatchPlugin.addMessageListener((message) {
+        inspect(message);
+      }, name: "main");
+      _flutterSmartWatchPlugin.addMessageListener((message) {
+        inspect(message);
+      },
+          uri: Uri(
+              scheme: "wear", host: "cf4092e", path: "/wearos-message-path"));
+      _flutterSmartWatchPlugin.addDataListener((dataEvents) {
+        inspect(dataEvents);
+      }, name: "main");
+      _flutterSmartWatchPlugin.addDataListener((dataEvents) {
+        inspect(dataEvents);
+      }, uri: Uri(scheme: "wear", host: "*", path: "/data-path-2"));
+      _flutterSmartWatchPlugin.addDataListener((dataEvents) {
+        inspect(dataEvents);
+      }, uri: Uri(scheme: "wear", host: "cf4092e", path: "/wearos-data-path"));
+
       _flutterSmartWatchPlugin.addCapabilityListener((capabilityInfo) {
         _updateDeviceList((capabilityInfo.associatedDevices).toList());
-      }, name: "flutter_smart_watch_connected_nodes");
-
-      _flutterSmartWatchPlugin
-          .findDataItems(
-              uri: Uri(scheme: "wear", host: "*"),
-              filterType: DataUriFilterType.prefix)
-          .then(inspect);
+      }, uri: Uri.parse("wear://*/flutter_smart_watch_connected_nodes"));
     });
   }
 
