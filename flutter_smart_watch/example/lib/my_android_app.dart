@@ -37,27 +37,40 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
           .then((info) {
         _updateDeviceList((info?.associatedDevices ?? Set()).toList());
       });
-      _flutterSmartWatchPlugin.addMessageListener((message) {
+      _flutterSmartWatchPlugin.messageReceived(name: "main").listen((message) {
         inspect(message);
-      }, name: "main");
-      _flutterSmartWatchPlugin.addMessageListener((message) {
-        inspect(message);
-      },
-          uri: Uri(
-              scheme: "wear", host: "cf4092e", path: "/wearos-message-path"));
-      _flutterSmartWatchPlugin.addDataListener((dataEvents) {
-        inspect(dataEvents);
-      }, name: "main");
-      _flutterSmartWatchPlugin.addDataListener((dataEvents) {
-        inspect(dataEvents);
-      }, uri: Uri(scheme: "wear", host: "*", path: "/data-path-2"));
-      _flutterSmartWatchPlugin.addDataListener((dataEvents) {
-        inspect(dataEvents);
-      }, uri: Uri(scheme: "wear", host: "cf4092e", path: "/wearos-data-path"));
+      });
 
-      _flutterSmartWatchPlugin.addCapabilityListener((capabilityInfo) {
+      _flutterSmartWatchPlugin
+          .messageReceived(
+              uri: Uri(
+                  scheme: "wear",
+                  host: "cf4092e",
+                  path: "/wearos-message-path"))
+          .listen((message) {});
+      _flutterSmartWatchPlugin.dataChanged(name: "main").listen((dataEvents) {
+        inspect(dataEvents);
+      });
+      _flutterSmartWatchPlugin
+          .dataChanged(
+              uri: Uri(scheme: "wear", host: "*", path: "/data-path-2"))
+          .listen((dataEvents) {
+        inspect(dataEvents);
+      });
+      _flutterSmartWatchPlugin
+          .dataChanged(
+              uri: Uri(
+                  scheme: "wear", host: "cf4092e", path: "/wearos-data-path"))
+          .listen((dataEvents) {
+        inspect(dataEvents);
+      });
+
+      _flutterSmartWatchPlugin
+          .capabilityChanged(
+              uri: Uri.parse("wear://*/flutter_smart_watch_connected_nodes"))
+          .listen((capabilityInfo) {
         _updateDeviceList((capabilityInfo.associatedDevices).toList());
-      }, uri: Uri.parse("wear://*/flutter_smart_watch_connected_nodes"));
+      });
     });
   }
 

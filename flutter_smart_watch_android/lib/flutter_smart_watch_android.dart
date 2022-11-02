@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_smart_watch_android/channel.dart';
 import 'package:flutter_smart_watch_android/helpers/enums.dart';
 import 'package:flutter_smart_watch_android/models/capability_info.dart';
+import 'package:flutter_smart_watch_android/models/data_event.dart';
 import 'package:flutter_smart_watch_android/models/data_item.dart';
+import 'package:flutter_smart_watch_android/models/message.dart';
 import 'package:flutter_smart_watch_android/wear_os_observer.dart';
 import 'package:flutter_smart_watch_platform_interface/flutter_smart_watch_platform_interface.dart';
 
@@ -83,28 +86,32 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
     return channel.invokeMethod("removeExistingCapability", name);
   }
 
-  Future addCapabilityListener(CapabilityChangedListener listener,
+  Stream<CapabilityInfo> capabilityChanged(
       {String? name,
       Uri? uri,
-      DataUriFilterType filterType = DataUriFilterType.literal}) {
+      DataUriFilterType filterType = DataUriFilterType.literal}) async* {
     if (name == null && uri == null) {
       throw "Name or uri must be specified";
     }
-    return channel
-        .invokeMethod(
-            "addCapabilityListener",
-            name != null
-                ? {
-                    "name": name,
-                  }
-                : {"path": uri.toString(), "filterType": filterType.index})
-        .then((_) {
-      _wearOSObserver.capabilityListeners[name ?? uri.toString()] = listener;
-    });
+    await channel.invokeMethod(
+        "addCapabilityListener",
+        name != null
+            ? {
+                "name": name,
+              }
+            : {"path": uri.toString(), "filterType": filterType.index});
+
+    String key = name ?? uri.toString();
+    Map<String, StreamController<CapabilityInfo>>
+        _capabilityInfoStreamControllers =
+        _wearOSObserver.streamControllers[ObservableType.capability]
+            as Map<String, StreamController<CapabilityInfo>>;
+    _capabilityInfoStreamControllers[key] = StreamController.broadcast();
+    yield* _capabilityInfoStreamControllers[key]!.stream;
   }
 
   bool isCapabilityHasListener({String? name, Uri? uri}) {
-    return _wearOSObserver.capabilityListeners
+    return _wearOSObserver.streamControllers[ObservableType.capability]!
         .containsKey(name ?? uri.toString());
   }
 
@@ -112,11 +119,15 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
     if (name == null && uri == null) {
       throw "Name or uri must be specified";
     }
+    String key = name ?? uri.toString();
+    if (_wearOSObserver.streamControllers[ObservableType.capability]!
+        .containsKey(key)) {
+      _wearOSObserver.streamControllers[ObservableType.capability]![key]
+          ?.close();
+      _wearOSObserver.streamControllers[ObservableType.capability]?.remove(key);
+    }
     final result = await channel.invokeMethod("removeCapabilityListener",
         name != null ? {"name": name} : {"path": uri.toString()});
-    if (result) {
-      _wearOSObserver.capabilityListeners.remove(name);
-    }
     return result ?? false;
   }
 
@@ -132,36 +143,39 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
     })).then((messageId) => messageId ?? -1);
   }
 
-  Future addMessageListener(MessageReceivedListener listener,
+  Stream<Message> messageReceived(
       {String? name,
       Uri? uri,
-      DataUriFilterType filterType = DataUriFilterType.literal}) {
+      DataUriFilterType filterType = DataUriFilterType.literal}) async* {
     if (name == null && uri == null) {
       throw "Name or uri must be specified";
     }
-    return channel
-        .invokeMethod(
-            "addMessageListener",
-            name != null
-                ? {"name": name}
-                : {"path": uri.toString(), "filterType": filterType.index})
-        .then((_) {
-      _wearOSObserver.messageReceivedListeners[name ?? uri.toString()] =
-          listener;
-    });
+    await channel.invokeMethod(
+        "addMessageListener",
+        name != null
+            ? {"name": name}
+            : {"path": uri.toString(), "filterType": filterType.index});
+    await removeMessageListener(name: name, uri: uri);
+    String key = name ?? uri.toString();
+    Map<String, StreamController<Message>> _messageStreamControllers =
+        _wearOSObserver.streamControllers[ObservableType.message]
+            as Map<String, StreamController<Message>>;
+    _messageStreamControllers[key] = StreamController.broadcast();
+    yield* _messageStreamControllers[key]!.stream;
   }
 
   Future removeMessageListener({String? name, Uri? uri}) {
     if (name == null && uri == null) {
       throw "Name or uri must be specified";
     }
-    return channel
-        .invokeMethod("removeMessageListener",
-            name != null ? {"name": name} : {"path": uri.toString()})
-        .then((value) {
-      if (!value) return;
-      _wearOSObserver.messageReceivedListeners.remove(name ?? uri.toString());
-    });
+    String key = name ?? uri.toString();
+    if (_wearOSObserver.streamControllers[ObservableType.message]!
+        .containsKey(key)) {
+      _wearOSObserver.streamControllers[ObservableType.message]![key]?.close();
+      _wearOSObserver.streamControllers[ObservableType.message]!.remove(key);
+    }
+    return channel.invokeMethod("removeMessageListener",
+        name != null ? {"name": name} : {"path": uri.toString()});
   }
 
   Future<DataItem?> syncData(
@@ -211,41 +225,45 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
         .toList();
   }
 
-  Future addDataListener(DataChangedListener listener,
+  Stream<List<DataEvent>> dataChanged(
       {String? name,
       Uri? uri,
-      DataUriFilterType filterType = DataUriFilterType.literal}) {
+      DataUriFilterType filterType = DataUriFilterType.literal}) async* {
     if (name == null && uri == null) {
       throw "Name or uri must be specified";
     }
-    return channel
-        .invokeMethod(
-            "addDataListener",
-            name != null
-                ? {"name": name}
-                : {"path": uri.toString(), "filterType": filterType.index})
-        .then((_) {
-      _wearOSObserver.dataChangedListeners[name ?? uri.toString()] = listener;
-    });
+    await channel.invokeMethod(
+        "addDataListener",
+        name != null
+            ? {"name": name}
+            : {"path": uri.toString(), "filterType": filterType.index});
+    String key = name ?? uri.toString();
+    await removeDataListener(name: name, uri: uri);
+    Map<String, StreamController<List<DataEvent>>> _dataStreamControllers =
+        _wearOSObserver.streamControllers[ObservableType.data]
+            as Map<String, StreamController<List<DataEvent>>>;
+    _dataStreamControllers[key] = StreamController.broadcast();
+    yield* _dataStreamControllers[key]!.stream;
   }
 
   Future removeDataListener({String? name, Uri? uri}) {
     if (name == null && uri == null) {
       throw "Name or uri must be specified";
     }
-    return channel
-        .invokeMethod("emoveDataListener",
-            name != null ? {"name": name} : {"path": uri.toString()})
-        .then((value) {
-      if (!value) return;
-      _wearOSObserver.dataChangedListeners.remove(name ?? uri.toString());
-    });
+    String key = name ?? uri.toString();
+
+    if (_wearOSObserver.streamControllers[ObservableType.data]!
+        .containsKey(key)) {
+      _wearOSObserver.streamControllers[ObservableType.data]![key]!.close();
+      _wearOSObserver.streamControllers[ObservableType.data]!
+          .remove(name ?? uri.toString());
+    }
+    return channel.invokeMethod("removeDataListener",
+        name != null ? {"name": name} : {"path": uri.toString()});
   }
 
   @override
   void dispose() {
-    _wearOSObserver.capabilityListeners.clear();
-    _wearOSObserver.dataChangedListeners.clear();
-    _wearOSObserver.messageReceivedListeners.clear();
+    _wearOSObserver.streamControllers.values.forEach((childControllers) {});
   }
 }
