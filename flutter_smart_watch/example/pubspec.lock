@@ -160,6 +160,13 @@ packages:
       relative: true
     source: path
     version: "0.0.1"
+  flutter_smart_watch_harmony_os:
+    dependency: transitive
+    description:
+      path: "../../flutter_smart_watch_harmony_os"
+      relative: true
+    source: path
+    version: "0.0.1"
   flutter_smart_watch_ios:
     dependency: transitive
     description:
