@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 import 'dart:typed_data';
 
@@ -21,57 +22,45 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
   DeviceInfo? _selectedDevice;
   Message? _currentMessage;
   DataItem? _dataItem;
+  List<StreamSubscription<Message>> _messageSubscriptions = [];
+  StreamSubscription<CapabilityInfo>? _connectedDeviceCapabilitySubscription;
 
   @override
   void initState() {
     super.initState();
     _flutterSmartWatchPlugin.configureWearableAPI().then((_) {
-      // _flutterSmartWatchPlugin.getConnectedDevices().then((devices) {
-      //   setState(() {
-      //     _deviceList = devices;
-      //   });
-      // });
       _flutterSmartWatchPlugin
-          .findCapabilityByName("flutter_smart_watch_connected_nodes",
-              filterType: CapabilityFilterType.all)
+          .findCapabilityByName("flutter_smart_watch_connected_nodes")
           .then((info) {
-        _updateDeviceList((info?.associatedDevices ?? Set()).toList());
+        _updateDeviceList(info!.associatedDevices.toList());
       });
-      _flutterSmartWatchPlugin.messageReceived(name: "main").listen((message) {
-        inspect(message);
-      });
-
-      _flutterSmartWatchPlugin
-          .messageReceived(
-              uri: Uri(
-                  scheme: "wear",
-                  host: "cf4092e",
-                  path: "/wearos-message-path"))
-          .listen((message) {});
-      _flutterSmartWatchPlugin.dataChanged(name: "main").listen((dataEvents) {
-        inspect(dataEvents);
-      });
-      _flutterSmartWatchPlugin
-          .dataChanged(
-              uri: Uri(scheme: "wear", host: "*", path: "/data-path-2"))
-          .listen((dataEvents) {
-        inspect(dataEvents);
-      });
-      _flutterSmartWatchPlugin
-          .dataChanged(
-              uri: Uri(
-                  scheme: "wear", host: "cf4092e", path: "/wearos-data-path"))
-          .listen((dataEvents) {
-        inspect(dataEvents);
-      });
-
-      _flutterSmartWatchPlugin
+      _connectedDeviceCapabilitySubscription = _flutterSmartWatchPlugin
           .capabilityChanged(
-              uri: Uri.parse("wear://*/flutter_smart_watch_connected_nodes"))
-          .listen((capabilityInfo) {
-        _updateDeviceList((capabilityInfo.associatedDevices).toList());
+              capabilityPath: Uri(
+                  scheme: "wear", // Default scheme for WearOS app
+                  host: "*", // Accept all path
+                  path:
+                      "/flutter_smart_watch_connected_nodes" // Capability path
+                  ))
+          .listen((info) {
+        if (info.associatedDevices.isEmpty) {
+          setState(() {
+            _selectedDevice = null;
+          });
+        }
+        _updateDeviceList(info.associatedDevices.toList());
       });
     });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _clearAllListeners();
+  }
+
+  _clearAllListeners() {
+    _connectedDeviceCapabilitySubscription?.cancel();
   }
 
   void _updateDeviceList(List<DeviceInfo> devices) {
@@ -144,9 +133,23 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
                   setState(() {
                     if (_selectedDevice != null) {
                       _selectedDevice = null;
+                      _messageSubscriptions.forEach((subscription) {
+                        subscription.cancel();
+                      });
                       return;
                     }
                     _selectedDevice = info;
+                    _messageSubscriptions.add(_flutterSmartWatchPlugin
+                        .messageReceived(
+                            uri: Uri(
+                                scheme: "wear",
+                                host: _selectedDevice?.id,
+                                path: "/wearos-message-path"))
+                        .listen((message) {
+                      setState(() {
+                        _currentMessage = message;
+                      });
+                    }));
                   });
                 })
           ]),
