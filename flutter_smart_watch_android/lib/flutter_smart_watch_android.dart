@@ -17,6 +17,7 @@ export 'helpers/enums.dart';
 export 'models/message.dart';
 export "models/data_item.dart";
 export "models/data_event.dart";
+export "models/capability_info.dart";
 
 class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
   static registerWith() {
@@ -26,17 +27,13 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
   late WearOSObserver _wearOSObserver;
 
   @override
-  Future initialize() async {
-    _wearOSObserver = WearOSObserver();
-  }
-
-  @override
   Future<bool> isSupported() async {
     bool? isSupported = await channel.invokeMethod("isSupported");
     return isSupported ?? false;
   }
 
   Future configureWearableAPI() async {
+    _wearOSObserver = WearOSObserver();
     return channel.invokeMethod("configure");
   }
 
@@ -87,21 +84,26 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
   }
 
   Stream<CapabilityInfo> capabilityChanged(
-      {String? name,
-      Uri? uri,
-      DataUriFilterType filterType = DataUriFilterType.literal}) async* {
-    if (name == null && uri == null) {
+      {String? capabilityName,
+      Uri? capabilityPath,
+      UriFilterType filterType = UriFilterType.literal}) async* {
+    if (capabilityName == null && capabilityPath == null) {
       throw "Name or uri must be specified";
     }
+    await removeCapabilityListener(
+        capabilityName: capabilityName, capabilityUri: capabilityPath);
     await channel.invokeMethod(
         "addCapabilityListener",
-        name != null
+        capabilityName != null
             ? {
-                "name": name,
+                "name": capabilityName,
               }
-            : {"path": uri.toString(), "filterType": filterType.index});
+            : {
+                "path": capabilityPath.toString(),
+                "filterType": filterType.index
+              });
 
-    String key = name ?? uri.toString();
+    String key = capabilityName ?? capabilityPath.toString();
     Map<String, StreamController<CapabilityInfo>>
         _capabilityInfoStreamControllers =
         _wearOSObserver.streamControllers[ObservableType.capability]
@@ -115,19 +117,23 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
         .containsKey(name ?? uri.toString());
   }
 
-  Future<bool> removeCapabilityListener({String? name, Uri? uri}) async {
-    if (name == null && uri == null) {
+  Future<bool> removeCapabilityListener(
+      {String? capabilityName, Uri? capabilityUri}) async {
+    if (capabilityName == null && capabilityUri == null) {
       throw "Name or uri must be specified";
     }
-    String key = name ?? uri.toString();
+    String key = capabilityName ?? capabilityUri.toString();
     if (_wearOSObserver.streamControllers[ObservableType.capability]!
         .containsKey(key)) {
       _wearOSObserver.streamControllers[ObservableType.capability]![key]
           ?.close();
       _wearOSObserver.streamControllers[ObservableType.capability]?.remove(key);
     }
-    final result = await channel.invokeMethod("removeCapabilityListener",
-        name != null ? {"name": name} : {"path": uri.toString()});
+    final result = await channel.invokeMethod(
+        "removeCapabilityListener",
+        capabilityName != null
+            ? {"name": capabilityName}
+            : {"path": capabilityUri.toString()});
     return result ?? false;
   }
 
@@ -146,16 +152,17 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
   Stream<Message> messageReceived(
       {String? name,
       Uri? uri,
-      DataUriFilterType filterType = DataUriFilterType.literal}) async* {
+      UriFilterType filterType = UriFilterType.literal}) async* {
     if (name == null && uri == null) {
       throw "Name or uri must be specified";
     }
+    await removeMessageListener(name: name, uri: uri);
     await channel.invokeMethod(
         "addMessageListener",
         name != null
             ? {"name": name}
             : {"path": uri.toString(), "filterType": filterType.index});
-    await removeMessageListener(name: name, uri: uri);
+
     String key = name ?? uri.toString();
     Map<String, StreamController<Message>> _messageStreamControllers =
         _wearOSObserver.streamControllers[ObservableType.message]
@@ -192,8 +199,7 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
   }
 
   Future<int> deleteDataItems(
-      {required Uri uri,
-      DataUriFilterType filterType = DataUriFilterType.literal}) {
+      {required Uri uri, UriFilterType filterType = UriFilterType.literal}) {
     return channel.invokeMethod("deleteDataItems", {
       "path": uri.toString(),
       "filterType": filterType.index
@@ -202,7 +208,7 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
 
   Future<List<DataItem>> findDataItems(
       {required Uri uri,
-      DataUriFilterType filterType = DataUriFilterType.literal}) async {
+      UriFilterType filterType = UriFilterType.literal}) async {
     List? results = await channel.invokeMethod("getDataItems",
         {"path": uri.toString(), "filterType": filterType.index});
     return (results ?? [])
@@ -228,17 +234,18 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
   Stream<List<DataEvent>> dataChanged(
       {String? name,
       Uri? uri,
-      DataUriFilterType filterType = DataUriFilterType.literal}) async* {
+      UriFilterType filterType = UriFilterType.literal}) async* {
     if (name == null && uri == null) {
       throw "Name or uri must be specified";
     }
+    await removeDataListener(name: name, uri: uri);
     await channel.invokeMethod(
         "addDataListener",
         name != null
             ? {"name": name}
             : {"path": uri.toString(), "filterType": filterType.index});
     String key = name ?? uri.toString();
-    await removeDataListener(name: name, uri: uri);
+
     Map<String, StreamController<List<DataEvent>>> _dataStreamControllers =
         _wearOSObserver.streamControllers[ObservableType.data]
             as Map<String, StreamController<List<DataEvent>>>;

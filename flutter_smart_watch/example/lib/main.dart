@@ -11,6 +11,5 @@ import 'my_ios_app.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  FlutterSmartWatch().initialize();
   runApp(Platform.isIOS ? const MyIOSApp() : const MyAndroidApp());
 }

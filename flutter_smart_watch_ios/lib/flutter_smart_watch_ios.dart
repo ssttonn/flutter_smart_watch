@@ -28,12 +28,6 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
 
   late WatchOSObserver _watchOSObserver;
 
-  @override
-  Future initialize() async {
-    _watchOSObserver = WatchOSObserver();
-    _watchOSObserver.initAllStreamControllers();
-  }
-
   /// Check if your IOS device is supported to connect with WatchOS device
   @override
   Future<bool> isSupported() async {
@@ -43,6 +37,8 @@ class FlutterSmartWatchIos extends FlutterSmartWatchPlatformInterface {
 
   /// Init and activate [WatchConnectivity] session
   Future configureAndActivateSession() async {
+    _watchOSObserver = WatchOSObserver();
+    _watchOSObserver.initAllStreamControllers();
     return channel.invokeMethod("configure");
   }
 

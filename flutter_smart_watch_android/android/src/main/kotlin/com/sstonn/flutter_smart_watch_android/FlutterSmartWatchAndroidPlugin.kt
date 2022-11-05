@@ -4,6 +4,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.annotation.NonNull
 import com.google.android.gms.wearable.*
+import com.google.android.gms.wearable.CapabilityClient.FILTER_ALL
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -255,6 +256,8 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 val path = arguments["path"] as String?
                 if (name != null || path != null) {
                     removeMessageListener(result, (name ?: path)!!)
+                }else{
+                    result.success(null)
                 }
             }
             "findDataItem" -> {
@@ -398,7 +401,7 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                     capabilityClient.addListener(
                         capabilityListeners[key]!!,
                         Uri.parse(key),
-                        filterType
+                        FILTER_ALL
                     ).await()
                 } else {
                     capabilityClient.addListener(capabilityListeners[key]!!, key).await()

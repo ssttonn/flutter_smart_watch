@@ -23,12 +23,4 @@ class FlutterSmartWatch {
   factory FlutterSmartWatch() {
     return _instance;
   }
-
-  Future initialize() async {
-    if (Platform.isIOS) {
-      return _ios.initialize();
-    } else {
-      return _android.initialize();
-    }
-  }
 }

@@ -6,4 +6,4 @@ enum MessagePriority { low, high }
 
 enum DataEventType { changed, deleted }
 
-enum DataUriFilterType { literal, prefix }
+enum UriFilterType { literal, prefix }

@@ -16,10 +16,6 @@ abstract class FlutterSmartWatchPlatformInterface extends PlatformInterface {
     _instance = instance;
   }
 
-  Future initialize() {
-    throw UnimplementedError('initalize() has not been implemented.');
-  }
-
   Future<bool> isSupported() {
     throw UnimplementedError('isSupported() has not been implemented.');
   }
