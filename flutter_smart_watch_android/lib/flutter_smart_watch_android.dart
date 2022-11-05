@@ -27,17 +27,13 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
   late WearOSObserver _wearOSObserver;
 
   @override
-  Future initialize() async {
-    _wearOSObserver = WearOSObserver();
-  }
-
-  @override
   Future<bool> isSupported() async {
     bool? isSupported = await channel.invokeMethod("isSupported");
     return isSupported ?? false;
   }
 
   Future configureWearableAPI() async {
+    _wearOSObserver = WearOSObserver();
     return channel.invokeMethod("configure");
   }
 

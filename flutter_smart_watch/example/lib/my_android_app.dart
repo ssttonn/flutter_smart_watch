@@ -56,6 +56,7 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
   @override
   void dispose() {
     super.dispose();
+    _flutterSmartWatchPlugin.dispose();
     _clearAllListeners();
   }
 
