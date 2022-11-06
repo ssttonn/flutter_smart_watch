@@ -1,7 +1,7 @@
 package com.sstonn.flutter_smart_watch_android
 
 import android.net.Uri
-import android.util.Log
+import android.util.Pair
 import androidx.annotation.NonNull
 import com.google.android.gms.wearable.*
 import com.google.android.gms.wearable.CapabilityClient.FILTER_ALL
@@ -16,16 +16,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.io.*
+import kotlin.coroutines.CoroutineContext
+import kotlin.io.path.pathString
 
-/** FlutterSmartWatchAndroidPlugin */
 class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
-    /// The MethodChannel that will the communication between Flutter and native Android
-    ///
-    /// This local reference serves to register the plugin with the Flutter Engine and unregister it
-    /// when the Flutter Engine is detached from the Activity
     private lateinit var channel: MethodChannel
     private lateinit var callbackChannel: MethodChannel
-    private var scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
+    private var scope: (CoroutineContext) -> CoroutineScope = {
+        CoroutineScope(it)
+    }
+
 
     //Clients needed for Data Layer API
     private lateinit var messageClient: MessageClient
@@ -81,10 +82,14 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 result.success(null)
             }
             "getConnectedDevices" -> {
-                scope.launch {
+                scope(Dispatchers.IO).launch {
                     try {
                         val nodes = nodeClient.connectedNodes.await()
-                        result.success(nodes.map { it.toRawMap() })
+                        scope(Dispatchers.Main).launch {
+                            result.success(
+                                nodes.map { it.toRawMap() }
+                            )
+                        }
                     } catch (_: Exception) {
                         handleFlutterError(
                             result,
@@ -96,11 +101,15 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
             "getCompanionPackageForDevice" -> {
                 val nodeId = call.arguments as String?
                 nodeId?.let {
-                    scope.launch {
+                    scope(Dispatchers.IO).launch {
                         try {
                             val packageName: String =
                                 nodeClient.getCompanionPackageForNode(it).await()
-                            result.success(packageName)
+                            scope(Dispatchers.Main).launch {
+                                result.success(
+                                    packageName
+                                )
+                            }
                         } catch (_: Exception) {
                             handleFlutterError(result, "No companion package found for $nodeId")
                         }
@@ -109,9 +118,14 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 }
             }
             "getLocalDeviceInfo" -> {
-                scope.launch {
+                scope(Dispatchers.IO).launch {
                     try {
-                        result.success(nodeClient.localNode.await().toRawMap())
+                        val localDeviceInfo = nodeClient.localNode.await().toRawMap()
+                        scope(Dispatchers.Main).launch {
+                            result.success(
+                                localDeviceInfo
+                            )
+                        }
                     } catch (_: Exception) {
                         handleFlutterError(
                             result,
@@ -123,9 +137,14 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
             "findDeviceIdFromBluetoothAddress" -> {
                 val macAddress: String? = call.arguments as String?
                 macAddress?.let {
-                    scope.launch {
+                    scope(Dispatchers.IO).launch {
                         try {
-                            result.success(nodeClient.getNodeId(it).await())
+                            val foundNodeId = nodeClient.getNodeId(it).await()
+                            scope(Dispatchers.Main).launch {
+                                result.success(
+                                    foundNodeId
+                                )
+                            }
                         } catch (_: Exception) {
                             result.success(null)
                         }
@@ -136,14 +155,22 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
             }
             "getAllCapabilities" -> {
                 val filterType = call.arguments as Int
-                scope.launch {
+                scope(Dispatchers.IO).launch {
                     try {
                         val capabilities =
                             capabilityClient.getAllCapabilities(filterType)
                                 .await().entries.associate { it.key to it.value.toRawMap() }
-                        result.success(capabilities)
+                        scope(Dispatchers.Main).launch {
+                            result.success(
+                                capabilities
+                            )
+                        }
                     } catch (e: Exception) {
-                        result.success(emptyMap<String, Map<String, Any>>())
+                        scope(Dispatchers.Main).launch {
+                            result.success(
+                                result.success(emptyMap<String, Map<String, Any>>())
+                            )
+                        }
                     }
                 }
             }
@@ -151,13 +178,21 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 val arguments = call.arguments as Map<*, *>
                 val name = arguments["name"] as String
                 val filterType = arguments["filterType"] as Int
-                scope.launch {
+                scope(Dispatchers.IO).launch {
                     try {
-                        result.success(
+                        val capabilityInfo =
                             capabilityClient.getCapability(name, filterType).await().toRawMap()
-                        )
+                        scope(Dispatchers.Main).launch {
+                            result.success(
+                                capabilityInfo
+                            )
+                        }
                     } catch (e: Exception) {
-                        result.success(null)
+                        scope(Dispatchers.Main).launch {
+                            result.success(
+                                null
+                            )
+                        }
                     }
                 }
             }
@@ -184,10 +219,14 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 val capabilityName: String? =
                     call.arguments as String?
                 capabilityName?.let {
-                    scope.launch {
+                    scope(Dispatchers.IO).launch {
                         try {
                             capabilityClient.addLocalCapability(capabilityName)
-                            result.success(null)
+                            scope(Dispatchers.Main).launch {
+                                result.success(
+                                    null
+                                )
+                            }
                         } catch (e: Exception) {
                             handleFlutterError(
                                 result,
@@ -203,10 +242,14 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 val capabilityName: String? =
                     call.arguments as String?
                 capabilityName?.let {
-                    scope.launch {
+                    scope(Dispatchers.IO).launch {
                         try {
                             capabilityClient.removeLocalCapability(capabilityName)
-                            result.success(null)
+                            scope(Dispatchers.Main).launch {
+                                result.success(
+                                    null
+                                )
+                            }
                         } catch (e: Exception) {
                             handleFlutterError(
                                 result,
@@ -224,16 +267,19 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 val nodeId = arguments["nodeId"] as String
                 val path = arguments["path"] as String
                 val priority = arguments["priority"] as Int
-                scope.launch {
+                scope(Dispatchers.IO).launch {
                     try {
-                        result.success(
-                            messageClient.sendMessage(
-                                nodeId,
-                                path,
-                                data,
-                                MessageOptions(priority)
-                            ).await()
-                        )
+                        val messageId = messageClient.sendMessage(
+                            nodeId,
+                            path,
+                            data,
+                            MessageOptions(priority)
+                        ).await()
+                        scope(Dispatchers.Main).launch {
+                            result.success(
+                                messageId
+                            )
+                        }
                     } catch (e: Exception) {
                         handleFlutterError(result, e.message ?: "")
                     }
@@ -256,15 +302,20 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 val path = arguments["path"] as String?
                 if (name != null || path != null) {
                     removeMessageListener(result, (name ?: path)!!)
-                }else{
+                } else {
                     result.success(null)
                 }
             }
             "findDataItem" -> {
                 val path = call.arguments as String
-                scope.launch {
+                scope(Dispatchers.IO).launch {
                     try {
-                        result.success(dataClient.getDataItem(Uri.parse(path)).await().toRawMap())
+                        val rawDataItem = convertAndRemapDataItemMap(
+                            dataClient.getDataItem(Uri.parse(path)).await().toRawMap()
+                        )
+                        scope(Dispatchers.Main).launch {
+                            result.success(rawDataItem)
+                        }
                     } catch (e: Exception) {
                         handleFlutterError(
                             result,
@@ -273,23 +324,14 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                     }
                 }
             }
-            "findDataItems" -> {
-                val path = call.arguments as String
-                scope.launch {
-                    try {
-                        result.success(dataClient.getDataItems(Uri.parse(path)).await())
-                    } catch (e: Exception) {
-                        handleFlutterError(
-                            result,
-                            "Unable to find data items associated with $path"
-                        )
-                    }
-                }
-            }
             "getAllDataItems" -> {
-                scope.launch {
+                scope(Dispatchers.IO).launch {
                     try {
-                        result.success(dataClient.dataItems.await().map { it.toRawMap() })
+                        val rawDataItems = dataClient.dataItems.await()
+                            .map { convertAndRemapDataItemMap(it.toRawMap()) }
+                        scope(Dispatchers.Main).launch {
+                            result.success(rawDataItems)
+                        }
                     } catch (e: Exception) {
                         handleFlutterError(result, "Unable to find data item")
                     }
@@ -301,18 +343,22 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                     val path = arguments["path"] as String
                     val isUrgent = arguments["isUrgent"] as Boolean
                     val rawMapData = arguments["rawMapData"] as HashMap<*, *>
+                    val filePaths = arguments["rawFilePaths"] as HashMap<*, *>
                     val putDataRequest: PutDataRequest = PutDataMapRequest.create(path).run {
                         if (isUrgent) {
                             setUrgent()
                         }
+                        dataMap.putAll((filePaths.entries.associate { it.key.toString() to it.value.toString() } as HashMap<String, String>).toFileDataMap())
                         dataMap.putAll(rawMapData.toDataMap())
                         asPutDataRequest()
                     }
-
-                    scope.launch {
+                    scope(Dispatchers.IO).launch {
                         try {
                             val dataItem = dataClient.putDataItem(putDataRequest).await()
-                            result.success(dataItem.toRawMap())
+                            val dataItemRawMap = convertAndRemapDataItemMap(dataItem.toRawMap())
+                            scope(Dispatchers.Main).launch {
+                                result.success(dataItemRawMap)
+                            }
                         } catch (e: Exception) {
                             handleFlutterError(result, e.toString())
                         }
@@ -325,11 +371,15 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 val arguments = call.arguments as HashMap<*, *>
                 val path = arguments["path"] as String
                 val filterType = arguments["filterType"] as Int
-                scope.launch {
+                scope(Dispatchers.IO).launch {
                     try {
-                        result.success(
+                        val numberOfDeletedItems =
                             dataClient.deleteDataItems(Uri.parse(path), filterType).await()
-                        )
+                        scope(Dispatchers.Main).launch {
+                            result.success(
+                                numberOfDeletedItems
+                            )
+                        }
                     } catch (e: Exception) {
                         handleFlutterError(result, "Unable to delete data items on $path")
                     }
@@ -340,15 +390,15 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                 val arguments = call.arguments as HashMap<*, *>
                 val path = arguments["path"] as String
                 val filterType = arguments["filterType"] as Int
-                Log.d("AndroidOS#GetItemsPath", path)
-                scope.launch {
+                scope(Dispatchers.IO).launch {
                     try {
                         val buffer = dataClient.getDataItems(Uri.parse(path), filterType).await()
-                        result.success(
-                            buffer.map {
-                                it.toRawMap()
-                            }
-                        )
+                        val items = buffer.map { it.toRawMap() }.map {
+                            convertAndRemapDataItemMap(it)
+                        }
+                        scope(Dispatchers.Main).launch {
+                            result.success(items)
+                        }
                         buffer.release()
                     } catch (e: Exception) {
                         handleFlutterError(result, "Unable to retrieve items on $path")
@@ -381,10 +431,11 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
     }
 
     private fun addNewCapabilityListener(result: Result, key: String, filterType: Int?) {
-        scope.launch {
+        scope(Dispatchers.IO).launch {
             try {
                 capabilityListeners[key]?.let {
-                    capabilityClient.removeListener(it, key).await() || capabilityClient.removeListener(it).await()
+                    capabilityClient.removeListener(it, key)
+                        .await() || capabilityClient.removeListener(it).await()
                 }
                 val newListener: CapabilityClient.OnCapabilityChangedListener =
                     CapabilityClient.OnCapabilityChangedListener {
@@ -407,7 +458,11 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                     capabilityClient.addListener(capabilityListeners[key]!!, key).await()
                 }
 
-                result.success(null)
+                scope(Dispatchers.Main).launch {
+                    result.success(
+                        null
+                    )
+                }
             } catch (e: Exception) {
                 handleFlutterError(
                     result,
@@ -420,12 +475,15 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
 
     private fun removeCapabilityListener(result: Result, key: String) {
         capabilityListeners[key]?.let {
-            scope.launch {
+            scope(Dispatchers.IO).launch {
                 try {
-                    result.success(
-                        capabilityClient.removeListener(it)
-                            .await() || capabilityClient.removeListener(it, key).await()
-                    )
+                    val isRemoved = capabilityClient.removeListener(it)
+                        .await() || capabilityClient.removeListener(it, key).await()
+                    scope(Dispatchers.Main).launch {
+                        result.success(
+                            isRemoved
+                        )
+                    }
                 } catch (e: Exception) {
                     result.success(false)
 
@@ -437,7 +495,7 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
     }
 
     private fun addNewMessageListener(result: Result, key: String, filterType: Int?) {
-        scope.launch {
+        scope(Dispatchers.IO).launch {
             try {
                 messageListeners[key]?.let {
                     messageClient.removeListener(it).await()
@@ -459,7 +517,9 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                     messageClient.addListener(messageListeners[key]!!, Uri.parse(key), filterType)
                         .await()
                 }
-                result.success(null)
+                scope(Dispatchers.Main).launch {
+                    result.success(null)
+                }
             } catch (e: Exception) {
                 handleFlutterError(
                     result,
@@ -472,12 +532,15 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
 
     private fun removeMessageListener(result: Result, key: String) {
         messageListeners[key]?.let {
-            scope.launch {
+            scope(Dispatchers.IO).launch {
                 try {
-                    result.success(
-                        messageClient.removeListener(it)
-                            .await()
-                    )
+                    val isRemoved = messageClient.removeListener(it)
+                        .await()
+                    scope(Dispatchers.Main).launch {
+                        result.success(
+                            isRemoved
+                        )
+                    }
                 } catch (e: Exception) {
                     result.success(false)
 
@@ -489,20 +552,25 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
     }
 
     private fun addNewDataListener(result: Result, key: String, filterType: Int?) {
-        scope.launch {
+        scope(Dispatchers.IO).launch {
             try {
                 dataChangeListeners[key]?.let {
                     dataClient.removeListener(it).await()
                 }
                 val newListener: DataClient.OnDataChangedListener =
-                    DataClient.OnDataChangedListener {
-                        callbackChannel.invokeMethod(
-                            "onDataChanged",
-                            mapOf(
-                                "key" to key,
-                                "data" to it.toRawMaps()
+                    DataClient.OnDataChangedListener { buffer ->
+                        handleDataEventBuffer(buffer, {
+                            callbackChannel.invokeMethod(
+                                "onDataChanged",
+                                mapOf(
+                                    "key" to key,
+                                    "data" to it
+                                )
                             )
-                        )
+                        }) {
+                            //TODO add error handler here
+                        }
+
                     }
                 dataChangeListeners[key] = newListener
                 if (filterType == null) {
@@ -511,7 +579,9 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
                     dataClient.addListener(dataChangeListeners[key]!!, Uri.parse(key), filterType)
                         .await()
                 }
-                result.success(null)
+                scope(Dispatchers.Main).launch {
+                    result.success(null)
+                }
             } catch (e: Exception) {
                 handleFlutterError(
                     result,
@@ -521,17 +591,63 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
         }
     }
 
+    private fun handleDataEventBuffer(
+        dataEventBuffer: DataEventBuffer,
+        onDataResponse: (List<Map<String, Any?>>) -> Unit,
+        onError: (java.lang.Exception) -> Unit
+    ) {
+        try {
+            val tmpEvents = dataEventBuffer.map { dataEvent -> dataEvent }
+            val events = tmpEvents.toList()
+            val rawEvents: List<Map<String, Any?>> = events.toRawEventList()
+            scope(Dispatchers.IO).launch {
+                try {
+                    val rawEventData = rawEvents.map { event ->
+                        convertAndRemapDataItemMap(event["dataItem"] as HashMap<String, Any?>)
+                        event
+                    }
+                    scope(Dispatchers.Main).launch {
+                        onDataResponse(rawEventData)
+                    }
+                } catch (e: Exception) {
+                    onError(e)
+                }
+            }
+        } catch (e: Exception) {
+            onError(e)
+        }
+    }
+
+    private suspend fun convertAndRemapDataItemMap(dataItemMap: HashMap<String, Any?>): HashMap<String, Any?> {
+        val filePaths: HashMap<String, String> = HashMap()
+        (dataItemMap["assets"] as HashMap<*, *>).map {
+            val fileExtension = (it.value as HashMap<*, *>)["extension"] as? String?
+            val asset = (it.value as HashMap<*, *>)["asset"] as? Asset?
+            if (fileExtension != null && asset != null) {
+                val inputStream =
+                    dataClient.getFdForAsset(asset).await().inputStream
+                filePaths[it.key.toString().replace("file#", "")] =
+                    copyStreamToFile(inputStream, ".${fileExtension}").path
+            }
+        }
+        dataItemMap["file_paths"] = filePaths
+        dataItemMap.remove("assets")
+        return dataItemMap
+    }
+
     private fun removeDataListener(result: Result, key: String) {
         dataChangeListeners[key]?.let {
-            scope.launch {
+            scope(Dispatchers.IO).launch {
                 try {
-                    result.success(
-                        dataClient.removeListener(it)
-                            .await()
-                    )
+                    val isRemoved = dataClient.removeListener(it)
+                        .await()
+                    scope(Dispatchers.Main).launch {
+                        result.success(
+                            isRemoved
+                        )
+                    }
                 } catch (e: Exception) {
                     result.success(false)
-
                 }
             }
             return
@@ -541,7 +657,9 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
 
 
     private fun handleFlutterError(result: Result, message: String) {
-        result.error("500", message, null)
+        scope(Dispatchers.Main).launch {
+            result.error("500", message, null)
+        }
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
@@ -560,132 +678,196 @@ class FlutterSmartWatchAndroidPlugin : FlutterPlugin, MethodCallHandler, Activit
         activityBinding = null
     }
 
-}
-
-fun MessageEvent.toRawData(): Map<String, Any> {
-    return mapOf(
-        "data" to data,
-        "path" to path,
-        "requestId" to this.requestId,
-        "sourceNodeId" to this.sourceNodeId
-    )
-}
-
-fun Node.toRawMap(): Map<String, Any> {
-    return mapOf(
-        "name" to displayName,
-        "isNearby" to isNearby,
-        "id" to id
-    )
-}
-
-fun CapabilityInfo.toRawMap(): Map<String, Any> {
-    return mapOf(
-        "name" to this.name,
-        "associatedNodes" to this.nodes.map { it.toRawMap() }
-    )
-}
-
-fun DataItem.toRawMap(): Map<String, Any> {
-    val mapDataItem = DataMapItem.fromDataItem(this)
-    return mapOf(
-        "uri" to uri.toString(),
-
-        ) + (if (data != null) mapOf("data" to data!!) + mapDataItem.toRawMap() else mapOf())
-}
-
-fun DataMapItem.toRawMap(): Map<String, Any> {
-    return mapOf(
-        "uri" to uri.toString(),
-        "map" to fromDataMap(dataMap)
-    )
-}
-
-fun HashMap<*, *>.toDataMap(): DataMap {
-    val dataMap = DataMap()
-    for (entry in entries) {
-        when (entry.value) {
-            is String -> {
-                dataMap.putString(entry.key.toString(), entry.value as String)
-                break
-            }
-            is Boolean -> {
-                dataMap.putBoolean(entry.key.toString(), entry.value as Boolean)
-                break
-            }
-            is Int -> {
-                dataMap.putInt(entry.key.toString(), entry.value as Int)
-                break
-            }
-            is Double -> {
-                dataMap.putDouble(entry.key.toString(), entry.value as Double)
-                break
-            }
-            is Long -> {
-                dataMap.putLong(entry.key.toString(), entry.value as Long)
-                break
-            }
-            is ByteArray -> {
-                dataMap.putByteArray(entry.key.toString(), entry.value as ByteArray)
-                break
-            }
-            is FloatArray -> {
-                dataMap.putFloatArray(entry.key.toString(), entry.value as FloatArray)
-                break
-            }
-            is LongArray -> {
-                dataMap.putLongArray(entry.key.toString(), entry.value as LongArray)
-                break
-            }
-            is HashMap<*, *> -> {
-                dataMap.putDataMap(entry.key.toString(), (entry.value as HashMap<*, *>).toDataMap())
-                break
-            }
-            is List<*> -> {
-                if ((entry.value as List<*>).isEmpty()) break
-                @Suppress("UNCHECKED_CAST")
-                if ((entry.value as List<*>).all { it is String }) {
-                    dataMap.putStringArray(
-                        entry.key.toString(),
-                        (entry.value as List<String>).toTypedArray()
+    private fun fromDataMap(dataMap: DataMap): Pair<HashMap<String, *>, HashMap<String, *>> {
+        val hashMap: HashMap<String, Any> = HashMap()
+        var assets: HashMap<String, Any?> = HashMap()
+        for (key in dataMap.keySet()) {
+            val data = dataMap.get<Any>(key)
+            data?.let {
+                if (it is Asset) {
+                    assets = hashMapOf(
+                        "asset" to it,
+                        "extension" to dataMap.get<String>("extension")
                     )
-                } else if ((entry.value as List<*>).all { it is HashMap<*, *> }) {
-                    dataMap.putDataMapArrayList(
-                        entry.key.toString(),
-                        ArrayList((entry.value as List<HashMap<*, *>>).map { it.toDataMap() })
+                    return@let
+                } else if (it is DataMap) {
+                    val childMapPair = fromDataMap(it)
+                    if (key.indexOf("file#") == 0) {
+                        assets[key] = childMapPair.second
+                    } else {
+                        hashMap[key] = childMapPair.first
+                    }
+                    return@let
+                }
+                hashMap[key] = it
+            }
+        }
+        return Pair(hashMap, assets)
+    }
+
+    private fun copyStreamToFile(inputStream: InputStream, extension: String): File {
+        val outputPath = kotlin.io.path.createTempFile("smart-watch-temp-file-", extension)
+        val outputFile = File(outputPath.pathString)
+        inputStream.use { input ->
+            val outputStream = FileOutputStream(outputFile)
+            outputStream.use { output ->
+                val buffer = ByteArray(4 * 1024) // buffer size
+                while (true) {
+                    val byteCount = input.read(buffer)
+                    if (byteCount < 0) break
+                    output.write(buffer, 0, byteCount)
+                }
+                output.flush()
+            }
+            outputStream.close()
+        }
+        inputStream.close()
+        return outputFile
+    }
+
+
+    private fun List<DataEvent>.toRawEventList(): List<Map<String, Any>> {
+        return map {
+            mapOf(
+                "type" to it.type,
+                "dataItem" to it.dataItem.toRawMap(),
+                "isDataValid" to it.isDataValid
+            )
+
+        }
+    }
+
+    private fun MessageEvent.toRawData(): Map<String, Any> {
+        return mapOf(
+            "data" to data,
+            "path" to path,
+            "requestId" to this.requestId,
+            "sourceNodeId" to this.sourceNodeId
+        )
+    }
+
+    private fun Node.toRawMap(): Map<String, Any> {
+        return mapOf(
+            "name" to displayName,
+            "isNearby" to isNearby,
+            "id" to id
+        )
+    }
+
+    private fun CapabilityInfo.toRawMap(): Map<String, Any> {
+        return mapOf(
+            "name" to this.name,
+            "associatedNodes" to this.nodes.map { it.toRawMap() }
+        )
+    }
+
+    private fun DataItem.toRawMap(): HashMap<String, Any?> {
+        val mapDataItem = DataMapItem.fromDataItem(this)
+
+        val finalMap: HashMap<String, Any?> = hashMapOf(
+            "uri" to uri.toString(),
+        )
+        val dataItemMap: HashMap<String, Any?> = hashMapOf(
+        )
+        if (data != null) {
+            dataItemMap.putAll(hashMapOf("data" to data!!))
+            dataItemMap.putAll(mapDataItem.toRawMap())
+        }
+        finalMap.putAll(dataItemMap)
+        return finalMap
+    }
+
+    private fun DataMapItem.toRawMap(): HashMap<String, Any> {
+        val dataMapPair = fromDataMap(dataMap)
+        return hashMapOf(
+            "uri" to uri.toString(),
+            "map" to dataMapPair.first,
+            "assets" to dataMapPair.second
+        )
+    }
+
+
+    private fun HashMap<*, String>.toFileDataMap(): DataMap {
+        val dataMap = DataMap()
+        for ((key, value) in this) {
+            val file = File(value)
+            if (file.exists()) {
+                val fileDataMap = DataMap()
+                val randomFile = RandomAccessFile(file, "r")
+                val fileBytes = ByteArray(randomFile.length().toInt())
+                randomFile.read(fileBytes)
+                fileDataMap.putString("extension", file.extension)
+                fileDataMap.putAsset(
+                    "asset", Asset.createFromBytes(
+                        fileBytes
                     )
-                } else if ((entry.value as List<*>).all { it is Int }) {
-                    dataMap.putIntegerArrayList(
-                        entry.key.toString(),
-                        ArrayList(entry.value as List<Int>)
+                )
+                dataMap.putDataMap("file#$key", fileDataMap)
+            }
+        }
+        return dataMap
+    }
+
+    private fun HashMap<*, *>.toDataMap(): DataMap {
+        val dataMap = DataMap()
+        for ((key, value) in this) {
+            when (value) {
+                is String -> {
+                    dataMap.putString(key.toString(), value)
+                }
+                is Boolean -> {
+                    dataMap.putBoolean(key.toString(), value)
+                }
+                is Int -> {
+                    dataMap.putInt(key.toString(), value)
+                }
+                is Double -> {
+                    dataMap.putDouble(key.toString(), value)
+                }
+                is Long -> {
+                    dataMap.putLong(key.toString(), value)
+                }
+                is ByteArray -> {
+                    dataMap.putByteArray(key.toString(), value)
+                }
+                is FloatArray -> {
+                    dataMap.putFloatArray(key.toString(), value)
+                }
+                is LongArray -> {
+                    dataMap.putLongArray(key.toString(), value)
+                }
+                is HashMap<*, *> -> {
+                    dataMap.putDataMap(
+                        key.toString(),
+                        (value).toDataMap()
                     )
                 }
-                break
+                is List<*> -> {
+                    if ((value).isEmpty()) continue
+                    @Suppress("UNCHECKED_CAST")
+                    if ((value).all { it is String }) {
+                        dataMap.putStringArray(
+                            key.toString(),
+                            (value as List<String>).toTypedArray()
+                        )
+                    } else if ((value).all { it is HashMap<*, *> }) {
+                        dataMap.putDataMapArrayList(
+                            key.toString(),
+                            ArrayList((value as List<HashMap<*, *>>).map { it.toDataMap() })
+                        )
+                    } else if ((value).all { it is Int }) {
+                        dataMap.putIntegerArrayList(
+                            key.toString(),
+                            ArrayList(value as List<Int>)
+                        )
+                    }
+                }
             }
         }
+        return dataMap
     }
-    return dataMap
+
 }
 
-fun fromDataMap(dataMap: DataMap): HashMap<String, *> {
-    val hashMap: HashMap<String, Any> = HashMap()
-    for (key in dataMap.keySet()) {
-        val data = dataMap.get<Any>(key)
-        data?.let {
-            hashMap[key] = data
-        }
-    }
-    return hashMap
-}
 
-fun DataEventBuffer.toRawMaps(): List<Map<String, Any>> {
-    return map {
-        mapOf(
-            "type" to it.type,
-            "dataItem" to it.dataItem.toRawMap(),
-            "isDataValid" to it.isDataValid
-        )
-
-    }
-}
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_smart_watch_android/channel.dart';
@@ -150,20 +151,15 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
   }
 
   Stream<Message> messageReceived(
-      {String? name,
-      Uri? uri,
-      UriFilterType filterType = UriFilterType.literal}) async* {
-    if (name == null && uri == null) {
-      throw "Name or uri must be specified";
-    }
-    await removeMessageListener(name: name, uri: uri);
+      {Uri? path, UriFilterType filterType = UriFilterType.literal}) async* {
+    await removeMessageListener(path: path);
     await channel.invokeMethod(
         "addMessageListener",
-        name != null
-            ? {"name": name}
-            : {"path": uri.toString(), "filterType": filterType.index});
+        path == null
+            ? {"name": "global_message_channel"}
+            : {"path": path.toString(), "filterType": filterType.index});
 
-    String key = name ?? uri.toString();
+    String key = path == null ? "global_message_channel" : path.toString();
     Map<String, StreamController<Message>> _messageStreamControllers =
         _wearOSObserver.streamControllers[ObservableType.message]
             as Map<String, StreamController<Message>>;
@@ -171,26 +167,32 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
     yield* _messageStreamControllers[key]!.stream;
   }
 
-  Future removeMessageListener({String? name, Uri? uri}) {
-    if (name == null && uri == null) {
-      throw "Name or uri must be specified";
-    }
-    String key = name ?? uri.toString();
+  Future removeMessageListener({Uri? path}) {
+    String key = path == null ? "global_message_channel" : path.toString();
     if (_wearOSObserver.streamControllers[ObservableType.message]!
         .containsKey(key)) {
       _wearOSObserver.streamControllers[ObservableType.message]![key]?.close();
       _wearOSObserver.streamControllers[ObservableType.message]!.remove(key);
     }
-    return channel.invokeMethod("removeMessageListener",
-        name != null ? {"name": name} : {"path": uri.toString()});
+    return channel.invokeMethod(
+        "removeMessageListener",
+        path == null
+            ? {"name": "global_message_channel"}
+            : {"path": path.toString()});
   }
 
   Future<DataItem?> syncData(
       {required String path,
-      required Map<String, dynamic> rawMapData,
+      required Map<String, dynamic> data,
+      Map<String, File> files = const {},
       bool isUrgent = false}) async {
-    final result = await channel.invokeMethod("syncData",
-        {"path": path, "isUrgent": isUrgent, "rawMapData": rawMapData}) as Map?;
+    final result = await channel.invokeMethod("syncData", {
+      "path": path,
+      "isUrgent": isUrgent,
+      "rawMapData": data.map((key, value) => MapEntry(key.toString(), value)),
+      "rawFilePaths":
+          files.map((key, value) => MapEntry(key.toString(), (value.path)))
+    }) as Map?;
     if (result != null) {
       return DataItem.fromJson(
           result.map((key, value) => MapEntry(key.toString(), value)));
@@ -232,19 +234,14 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
   }
 
   Stream<List<DataEvent>> dataChanged(
-      {String? name,
-      Uri? uri,
-      UriFilterType filterType = UriFilterType.literal}) async* {
-    if (name == null && uri == null) {
-      throw "Name or uri must be specified";
-    }
-    await removeDataListener(name: name, uri: uri);
+      {Uri? path, UriFilterType filterType = UriFilterType.literal}) async* {
+    await removeDataListener(path: path);
     await channel.invokeMethod(
         "addDataListener",
-        name != null
-            ? {"name": name}
-            : {"path": uri.toString(), "filterType": filterType.index});
-    String key = name ?? uri.toString();
+        path == null
+            ? {"name": "global_data_channel"}
+            : {"path": path.toString(), "filterType": filterType.index});
+    String key = path == null ? "global_data_channel" : path.toString();
 
     Map<String, StreamController<List<DataEvent>>> _dataStreamControllers =
         _wearOSObserver.streamControllers[ObservableType.data]
@@ -253,20 +250,19 @@ class FlutterSmartWatchAndroid extends FlutterSmartWatchPlatformInterface {
     yield* _dataStreamControllers[key]!.stream;
   }
 
-  Future removeDataListener({String? name, Uri? uri}) {
-    if (name == null && uri == null) {
-      throw "Name or uri must be specified";
-    }
-    String key = name ?? uri.toString();
+  Future removeDataListener({Uri? path}) {
+    String key = path == null ? "global_data_channel" : path.toString();
 
     if (_wearOSObserver.streamControllers[ObservableType.data]!
         .containsKey(key)) {
       _wearOSObserver.streamControllers[ObservableType.data]![key]!.close();
-      _wearOSObserver.streamControllers[ObservableType.data]!
-          .remove(name ?? uri.toString());
+      _wearOSObserver.streamControllers[ObservableType.data]!.remove(key);
     }
-    return channel.invokeMethod("removeDataListener",
-        name != null ? {"name": name} : {"path": uri.toString()});
+    return channel.invokeMethod(
+        "removeDataListener",
+        path != null
+            ? {"name": "global_data_channel"}
+            : {"path": path.toString()});
   }
 
   @override

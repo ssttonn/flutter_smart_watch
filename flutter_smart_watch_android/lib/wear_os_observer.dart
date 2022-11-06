@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_watch_android/channel.dart';
 import 'package:flutter_smart_watch_android/flutter_smart_watch_android.dart';
-import 'package:flutter_smart_watch_android/models/capability_info.dart';
 
 typedef CapabilityChangedListener = Function(CapabilityInfo);
 typedef MessageReceivedListener = Function(Message);

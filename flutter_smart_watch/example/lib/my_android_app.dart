@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_watch/flutter_smart_watch.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'widgets/spacing_column.dart';
 
@@ -23,7 +25,9 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
   Message? _currentMessage;
   DataItem? _dataItem;
   List<StreamSubscription<Message>> _messageSubscriptions = [];
+  List<StreamSubscription<List<DataEvent>>> _dataEventsSubscriptions = [];
   StreamSubscription<CapabilityInfo>? _connectedDeviceCapabilitySubscription;
+  File? _imageFile;
 
   @override
   void initState() {
@@ -34,6 +38,7 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
           .then((info) {
         _updateDeviceList(info!.associatedDevices.toList());
       });
+      _flutterSmartWatchPlugin.getAllDataItems().then(inspect);
       _connectedDeviceCapabilitySubscription = _flutterSmartWatchPlugin
           .capabilityChanged(
               capabilityPath: Uri(
@@ -137,18 +142,32 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
                       _messageSubscriptions.forEach((subscription) {
                         subscription.cancel();
                       });
+                      _messageSubscriptions.clear();
+                      _dataEventsSubscriptions.forEach((subscription) {
+                        subscription.cancel();
+                      });
+                      _dataEventsSubscriptions.clear();
                       return;
                     }
                     _selectedDevice = info;
                     _messageSubscriptions.add(_flutterSmartWatchPlugin
                         .messageReceived(
-                            uri: Uri(
+                            path: Uri(
                                 scheme: "wear",
                                 host: _selectedDevice?.id,
                                 path: "/wearos-message-path"))
                         .listen((message) {
                       setState(() {
                         _currentMessage = message;
+                      });
+                    }));
+                    _dataEventsSubscriptions.add(
+                        _flutterSmartWatchPlugin.dataChanged().listen((events) {
+                      setState(() {
+                        if (events[0].dataItem.uri.path == "/data-image-path") {
+                          _imageFile = events[0].dataItem.files["sample-image"];
+                        }
+                        _dataItem = events[0].dataItem;
                       });
                     }));
                   });
@@ -203,12 +222,11 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
                         deviceId: _selectedDevice!.id, path: "/sample-message")
                     .then(print);
               }),
-          Text("Received data: ", style: theme.textTheme.headline6),
+          Text("Latest sync data: ", style: theme.textTheme.headline6),
           ..._dataItem != null
               ? [
                   Text("Raw Data: ${_dataItem!.data.toString()}"),
-                  Text(
-                      "Decrypted Data: ${String.fromCharCodes(_currentMessage!.data).toString()}"),
+                  Text("Decrypted Data: ${_dataItem!.mapData["message"]}"),
                   Text("Data path: ${_dataItem!.uri.path}"),
                 ]
               : [],
@@ -227,7 +245,7 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
               ),
               onPressed: () {
                 _flutterSmartWatchPlugin
-                    .syncData(path: "/data-path-2", rawMapData: {
+                    .syncData(path: "/data-image-path", data: {
                   "message":
                       "Data sync by AndroidOS app at ${DateTime.now().millisecondsSinceEpoch}"
                 }).then((value) {
@@ -235,6 +253,46 @@ class _MyAndroidAppState extends State<MyAndroidApp> {
                       .findDataItemFromUri(uri: value!.uri)
                       .then(inspect);
                 });
+              }),
+          if (_imageFile != null) Image.file(_imageFile!),
+          CupertinoButton(
+              padding: EdgeInsets.zero,
+              child: Container(
+                padding: EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                    color: theme.primaryColor,
+                    borderRadius: BorderRadius.circular(10)),
+                child: Text(
+                  "Pick image and sync image data",
+                  style:
+                      theme.textTheme.subtitle1?.copyWith(color: Colors.white),
+                ),
+              ),
+              onPressed: () async {
+                XFile? file =
+                    await ImagePicker().pickImage(source: ImageSource.gallery);
+                if (file != null) {
+                  _flutterSmartWatchPlugin
+                      .syncData(path: "/data-image-path", data: {
+                    "message":
+                        "Data sync by AndroidOS app at ${DateTime.now().millisecondsSinceEpoch}",
+                    "count": 10,
+                    "bytearray8": Uint8List(8),
+                    "bytearray16": Uint16List(16),
+                    "sampleMap": {
+                      "message":
+                          "Data sync by AndroidOS app at ${DateTime.now().millisecondsSinceEpoch}",
+                      "count": 10,
+                      "bytearray8": Uint8List(8),
+                      "bytearray16": Uint16List(16),
+                      "sampleMap": {"key": "sadas"}
+                    }
+                  }, files: {
+                    "sample-image": File(file.path),
+                    "sample-image1": File(file.path),
+                    "sample-image2": File(file.path),
+                  });
+                }
               }),
         ],
       ),

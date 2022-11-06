@@ -1,7 +1,5 @@
 library flutter_smart_watch_ios;
 
-import 'dart:io';
-
 import 'package:flutter_smart_watch_android/flutter_smart_watch_android.dart';
 import 'package:flutter_smart_watch_ios/flutter_smart_watch_ios.dart';
 

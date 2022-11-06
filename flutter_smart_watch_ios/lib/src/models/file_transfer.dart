@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:flutter_smart_watch_ios/src/helpers/utils.dart';
 // import 'package:json_annotation/json_annotation.dart';
 

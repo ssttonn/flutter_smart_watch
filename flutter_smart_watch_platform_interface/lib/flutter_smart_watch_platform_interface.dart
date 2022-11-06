@@ -32,11 +32,6 @@ class DefaultPlatformInterface implements FlutterSmartWatchPlatformInterface {
   }
 
   @override
-  Future initialize() {
-    throw UnimplementedError();
-  }
-
-  @override
   Future<bool> isSupported() {
     throw UnimplementedError();
   }
