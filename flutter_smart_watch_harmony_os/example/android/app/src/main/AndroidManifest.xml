@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.sstonn.example">
+    package="sstonn.example.flutter_smart_watch_example">
    <application
         android:label="example"
         android:name="${applicationName}"
@@ -30,5 +30,8 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <meta-data
+            android:name="com.huawei.hms.client.appid"
+            android:value="107323223"/>
     </application>
 </manifest>

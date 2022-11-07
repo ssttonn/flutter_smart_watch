@@ -9,15 +9,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
   cupertino_icons: ^1.0.2
+  flutter_smart_watch_harmony_os:
+    path: ../
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   image_picker: ^0.8.6
-  flutter_smart_watch_harmony_os:
-    path: ../
+
 
 flutter:
   uses-material-design: true
