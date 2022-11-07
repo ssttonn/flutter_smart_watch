@@ -12,11 +12,11 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_smart_watch_android:
-    path: ../flutter_smart_watch_android/
+    path: ../flutter_smart_watch_android
   flutter_smart_watch_ios:
-    path: ../flutter_smart_watch_ios/
+    path: ../flutter_smart_watch_ios
   flutter_smart_watch_harmony_os:
-    path: ../flutter_smart_watch_harmony_os/
+    path: ../flutter_smart_watch_harmony_os
   flutter_smart_watch_platform_interface:
     path: ../flutter_smart_watch_platform_interface
 
