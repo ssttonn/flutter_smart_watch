@@ -5,9 +5,16 @@ import com.huawei.wearengine.HiWear
 import com.huawei.wearengine.auth.AuthCallback
 import com.huawei.wearengine.auth.AuthClient
 import com.huawei.wearengine.auth.Permission
+import com.huawei.wearengine.client.ServiceConnectionListener
+import com.huawei.wearengine.client.WearEngineClient
 import com.huawei.wearengine.device.Device
 import com.huawei.wearengine.device.DeviceClient
-
+import com.huawei.wearengine.monitor.MonitorClient
+import com.huawei.wearengine.monitor.MonitorData
+import com.huawei.wearengine.monitor.MonitorItem
+import com.huawei.wearengine.monitor.MonitorListener
+import com.huawei.wearengine.notify.*
+import com.huawei.wearengine.p2p.*
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -18,6 +25,7 @@ import io.flutter.plugin.common.MethodChannel.Result
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.io.*
 import kotlin.coroutines.CoroutineContext
 
 /** FlutterSmartWatchHarmonyOsPlugin */
@@ -28,6 +36,12 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
         CoroutineScope(it)
     }
 
+    //companion app package name
+    private var companionPackageName: String = ""
+
+    //companion app fingerprint
+    private var companionAppFingerprint: String = ""
+
     //Activity and context references
     private var activityBinding: ActivityPluginBinding? = null
 
@@ -35,12 +49,24 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
     private var authCallback: AuthCallback? = null
 
     //clients use to authenticate with Wear Engine
-    lateinit var deviceClient: DeviceClient
-    lateinit var authClient: AuthClient
+    private lateinit var deviceClient: DeviceClient
+    private lateinit var authClient: AuthClient
+    private lateinit var monitorClient: MonitorClient
+    private lateinit var p2pClient: P2pClient
+    private lateinit var wearEngineClient: WearEngineClient
+    private lateinit var notifyClient: NotifyClient
 
     //device list
     private var commonDevices: List<Device> = listOf()
     private var boundedDevices: List<Device> = listOf()
+
+    // monitor listener use to detect device info + status
+    private var monitorListeners: HashMap<String, MonitorListener> = hashMapOf()
+
+    //message listener use to detect message received events
+    private var messageListeners: HashMap<String, Receiver> = hashMapOf()
+
+    private lateinit var connectionListener: ServiceConnectionListener
 
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         channel =
@@ -59,22 +85,78 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
         when (call.method) {
             "configure" -> {
                 activityBinding?.let {
+                    val arguments = call.arguments as HashMap<*, *>
+                    companionPackageName = arguments["companionPackageName"] as String
+                    companionAppFingerprint = arguments["companionAppFingerprint"] as String
                     authClient = HiWear.getAuthClient(it.activity)
                     deviceClient = HiWear.getDeviceClient(it.activity)
+                    monitorClient = HiWear.getMonitorClient(it.activity)
+                    notifyClient = HiWear.getNotifyClient(it.activity)
+                    p2pClient = HiWear.getP2pClient(it.activity)
+                    p2pClient.setPeerPkgName(companionPackageName)
+                    p2pClient.setPeerFingerPrint(companionAppFingerprint)
                 }
                 result.success(null)
             }
             "hasAvailableDevices" -> {
-                scope(Dispatchers.IO).launch {
-                    //Check if user has available devices
-                    deviceClient.hasAvailableDevices().addOnSuccessListener {
-                        scope(Dispatchers.Main).launch {
-                            // return the result to flutter side
-                            result.success(it)
+                //Check if user has available devices
+                deviceClient.hasAvailableDevices().addOnSuccessListener {
+                    // return the result to flutter side
+                    result.success(it)
+                }.addOnFailureListener {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
+                }
+            }
+            "addServiceConnectionListener" -> {
+                unRegisterConnectionListener({
+                    connectionListener = object : ServiceConnectionListener {
+                        override fun onServiceConnect() {
+                            callbackChannel.invokeMethod("onConnectionChanged", true)
                         }
+
+                        override fun onServiceDisconnect() {
+                            callbackChannel.invokeMethod("onConnectionChanged", false)
+                        }
+                    }
+                    wearEngineClient =
+                        HiWear.getWearEngineClient(activityBinding!!.activity, connectionListener)
+                    wearEngineClient.registerServiceConnectionListener().addOnSuccessListener {
+                        result.success(null)
                     }.addOnFailureListener {
                         handleFlutterError(result, it.message ?: it.localizedMessage)
                     }
+                }, {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
+                })
+            }
+            "removeServiceConnectionListener" -> {
+                unRegisterConnectionListener(
+                    {
+                        result.success(null)
+                    }, {
+                        handleFlutterError(result, it.message ?: it.localizedMessage)
+                    }
+                )
+            }
+            "releaseConnection" -> {
+                wearEngineClient.releaseConnection().addOnSuccessListener {
+                    result.success(null)
+                }.addOnFailureListener {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
+                }
+            }
+            "getClientApiLevel" -> {
+                wearEngineClient.clientApiLevel.addOnSuccessListener {
+                    result.success(it)
+                }.addOnFailureListener {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
+                }
+            }
+            "getServiceApiLevel" -> {
+                wearEngineClient.serviceApiLevel.addOnSuccessListener {
+                    result.success(it)
+                }.addOnFailureListener {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
                 }
             }
             "addPermissionsListener" -> {
@@ -83,7 +165,7 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                         p0?.let {
                             callbackChannel.invokeMethod(
                                 "permissionGranted",
-                                it.map { permission -> findIndexFromPermission(permission) })
+                                it.map { permission -> permission.indexFromPermission() })
                         }
                     }
 
@@ -100,63 +182,50 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                 authCallback = null
             }
             "checkWearEnginePermission" -> {
-                scope(Dispatchers.IO).launch {
-                    val permissionIndex =
-                        (call.arguments as HashMap<*, *>)["permissionIndex"] as Int
-                    //check if the requested permission is granted
-                    authClient.checkPermission(findPermissionFromIndex(permissionIndex))
-                        .addOnSuccessListener {
-                            scope(Dispatchers.Main).launch {
-                                result.success(it)
-                            }
-                        }.addOnFailureListener {
-                            handleFlutterError(result, it.message ?: it.localizedMessage)
-                        }
-                }
-            }
-            "checkWearEnginePermissions" -> {
-                scope(Dispatchers.IO).launch {
-                    val permissionIndexes =
-                        (call.arguments as HashMap<*, *>)["permissionIndexes"] as List<*>
-                    //check if the requested permission is granted
-                    authClient.checkPermissions(permissionIndexes.map { findPermissionFromIndex(it as Int) }
-                        .toTypedArray()).addOnSuccessListener {
-                        scope(Dispatchers.Main).launch {
-                            result.success(it)
-                        }
+                val permissionIndex =
+                    (call.arguments as HashMap<*, *>)["permissionIndex"] as Int
+                //check if the requested permission is granted
+                authClient.checkPermission(permissionIndex.toWearEnginePermission())
+                    .addOnSuccessListener {
+                        result.success(it)
                     }.addOnFailureListener {
                         handleFlutterError(result, it.message ?: it.localizedMessage)
                     }
+            }
+            "checkWearEnginePermissions" -> {
+                val permissionIndexes =
+                    (call.arguments as HashMap<*, *>)["permissionIndexes"] as List<*>
+                //check if the requested permission is granted
+                authClient.checkPermissions(permissionIndexes.map { (it as Int).toWearEnginePermission() }
+                    .toTypedArray()).addOnSuccessListener {
+                    result.success(it)
+                }.addOnFailureListener {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
                 }
             }
             "requestPermissions" -> {
-                scope(Dispatchers.IO).launch {
-                    val permissionIndexes =
-                        (call.arguments as HashMap<*, *>)["permissionIndexes"] as List<*>
-                    authClient.requestPermission(
-                        authCallback,
-                        *permissionIndexes.map { findPermissionFromIndex(it as Int) }.toTypedArray()
-                    ).addOnSuccessListener {
-                        scope(Dispatchers.Main).launch {
-                            result.success(null)
-                        }
-                    }.addOnFailureListener {
-                        handleFlutterError(result, it.message ?: it.localizedMessage)
-                    }
+                val permissionIndexes =
+                    (call.arguments as HashMap<*, *>)["permissionIndexes"] as List<*>
+                authClient.requestPermission(
+                    authCallback,
+                    *permissionIndexes.map { (it as Int).toWearEnginePermission() }
+                        .toTypedArray()
+                ).addOnSuccessListener {
+                    result.success(null)
+                }.addOnFailureListener {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
                 }
             }
             "getBoundedDevices" -> {
-                scope(Dispatchers.IO).launch {
-                    deviceClient.bondedDevices.addOnSuccessListener {
-                        scope(Dispatchers.Main).launch {
-                            boundedDevices = it
-                            result.success(boundedDevices.map {
-                                it.toRawMap()
-                            })
-                        }
-                    }.addOnFailureListener {
-                        handleFlutterError(result, it.message ?: it.localizedMessage)
+                deviceClient.bondedDevices.addOnSuccessListener {
+                    scope(Dispatchers.Main).launch {
+                        boundedDevices = it
+                        result.success(boundedDevices.map {
+                            it.toRawMap()
+                        })
                     }
+                }.addOnFailureListener {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
                 }
             }
             "getCommonDevices" -> {
@@ -177,16 +246,12 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                 val arguments = call.arguments as HashMap<*, *>
                 val deviceUUID = arguments["deviceUUID"] as String
                 val queryId = arguments["queryId"] as Int
-                var foundDevice: Device? = null
-                // Check if deviceUUID contain on either common device or bounded device list
-                if (commonDevices.any { it.uuid == deviceUUID }) {
-                    foundDevice = commonDevices.filter { it.uuid == deviceUUID }[0]
-                } else if (boundedDevices.any { it.uuid == deviceUUID }) {
-                    foundDevice = commonDevices.filter { it.uuid == deviceUUID }[0]
-                }
+                val foundDevice: Device? = findDevice(deviceUUID)
                 if (foundDevice == null) {
-                    handleFlutterError(result, "Can't find selected device")
-                    return
+                    handleFlutterError(
+                        result,
+                        "Device not found, please refresh device list and try again"
+                    )
                 }
                 // Query for device capability
                 deviceClient.queryDeviceCapability(foundDevice, queryId).addOnSuccessListener {
@@ -200,11 +265,482 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                     handleFlutterError(result, it.message ?: it.localizedMessage)
                 }
             }
+            "getAvailableKBytes" -> {
+                val arguments = call.arguments as HashMap<*, *>
+                val deviceUUID = arguments["deviceUUID"] as String
+                val foundDevice: Device? = findDevice(deviceUUID)
+                if (foundDevice == null) {
+                    handleFlutterError(
+                        result,
+                        "Device not found, please refresh device list and try again"
+                    )
+                }
+                deviceClient.getAvailableKbytes(foundDevice).addOnSuccessListener {
+                    // Return the available storage space (KB) of a specified device.
+                    result.success(it)
+                }.addOnFailureListener {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
+                }
+            }
+            "queryForMonitorData" -> {
+                val arguments = call.arguments as HashMap<*, *>
+                val deviceUUID = arguments["deviceUUID"] as String
+                val monitorItemIndex = arguments["monitorItemIndex"] as Int
+                val foundDevice: Device? = findDevice(deviceUUID)
+                if (foundDevice == null) {
+                    handleFlutterError(
+                        result,
+                        "Device not found, please refresh device list and try again"
+                    )
+                    return
+                }
+                val monitorItem = monitorItemIndex.toMonitorItem()
+                monitorClient.query(foundDevice, monitorItem).addOnSuccessListener {
+                    result.success(
+                        hashMapOf(
+                            "monitorItemIndex" to monitorItem.index(),
+                            "data" to it.toHashMap()
+                        )
+                    )
+                }.addOnFailureListener {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
+                }
+            }
+            "registerMonitorListener" -> {
+                val arguments = call.arguments as HashMap<*, *>
+                val deviceUUID = arguments["deviceUUID"] as String
+                val foundDevice: Device? = findDevice(deviceUUID)
+                if (foundDevice == null) {
+                    handleFlutterError(
+                        result,
+                        "Device not found, please refresh device list and try again"
+                    )
+                    return
+                }
+                unRegisterMonitorListener(deviceUUID, {
+                    val monitorItemIndexes =
+                        (call.arguments as HashMap<*, *>)["monitorItemIndexes"] as List<*>
+                    monitorListeners[deviceUUID] =
+                        MonitorListener { errorCode, monitorItem, monitorData ->
+                            if (errorCode != 0) return@MonitorListener
+                            callbackChannel.invokeMethod(
+                                "monitorItemChanged", hashMapOf(
+                                    "monitorItemIndex" to monitorItem.index(),
+                                    "data" to monitorData.toHashMap()
+                                )
+                            )
+                        }
+                    val monitorItemList: ArrayList<MonitorItem> = ArrayList()
+                    monitorItemIndexes.forEach { index ->
+                        monitorItemList.add((index as Int).toMonitorItem())
+                    }
+                    monitorClient.register(
+                        foundDevice,
+                        monitorItemList,
+                        monitorListeners[deviceUUID]
+                    )
+                        .addOnSuccessListener {
+                            result.success(null)
+                        }.addOnFailureListener {
+                            handleFlutterError(result, it.message ?: it.localizedMessage)
+                        }
+                }, {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
+                })
+            }
+            "removeMonitorListener" -> {
+                val arguments = call.arguments as HashMap<*, *>
+                val deviceUUID = arguments["deviceUUID"] as String
+                unRegisterMonitorListener(deviceUUID, {
+                    result.success(null)
+                }, {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
+                })
+            }
+            "isCompanionAppInstalled" -> {
+                val arguments = call.arguments as HashMap<*, *>
+                val deviceUUID = arguments["deviceUUID"] as String
+                val foundDevice: Device? = findDevice(deviceUUID)
+                if (foundDevice == null) {
+                    handleFlutterError(
+                        result,
+                        "Device not found, please refresh device list and try again"
+                    )
+                    return
+                }
+                p2pClient.isAppInstalled(foundDevice, companionPackageName).addOnSuccessListener {
+                    // true if companion app has been installed, false for otherwise
+                    result.success(it)
+                }.addOnFailureListener {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
+                }
+            }
+            "getCompanionAppVersion" -> {
+                val arguments = call.arguments as HashMap<*, *>
+                val deviceUUID = arguments["deviceUUID"] as String
+                val foundDevice: Device? = findDevice(deviceUUID)
+                if (foundDevice == null) {
+                    handleFlutterError(
+                        result,
+                        "Device not found, please refresh device list and try again"
+                    )
+                    return
+                }
+                p2pClient.getAppVersion(foundDevice, companionPackageName).addOnSuccessListener {
+                    // -1: The app has not been installed
+                    result.success(it)
+                }.addOnFailureListener {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
+                }
+            }
+            "checkForCompanionAppRunningStatus" -> {
+                val arguments = call.arguments as HashMap<*, *>
+                val pingId = arguments["pingId"] as String
+                val deviceUUID = arguments["deviceUUID"] as String
+                val foundDevice: Device? = findDevice(deviceUUID)
+                if (foundDevice == null) {
+                    handleFlutterError(
+                        result,
+                        "Device not found, please refresh device list and try again"
+                    )
+                    return
+                }
+                val pingCallback = PingCallback {
+                    callbackChannel.invokeMethod(
+                        "onConnectedWearableDeviceReplied", hashMapOf(
+                            "pingId" to pingId,
+                            "code" to it
+                        )
+                    )
+                }
+
+                // ping to wearable device and ready to receive callback
+                p2pClient.ping(foundDevice, pingCallback).addOnSuccessListener {
+                    result.success(null)
+                }.addOnFailureListener {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
+                }
+            }
+            "sendNormalMessage" -> {
+                val arguments = call.arguments as HashMap<*, *>
+                val sendId = arguments["sendId"] as String
+                val messageMap = arguments["message"] as HashMap<*, *>
+                val messageDescription = arguments["messageDescription"] as String
+                val enableEncrypt = arguments["enableEncrypt"] as Boolean
+                val deviceUUID = arguments["deviceUUID"] as String
+                val foundDevice: Device? = findDevice(deviceUUID)
+                if (foundDevice == null) {
+                    handleFlutterError(
+                        result,
+                        "Device not found, please refresh device list and try again"
+                    )
+                    return
+                }
+
+                // Build a message
+                val messageBuilder = Message.Builder()
+                // Put message map as payload
+                messageBuilder.setPayload(messageMap.toByteArray())
+                messageBuilder.setDescription(messageDescription)
+                messageBuilder.setEnableEncrypt(enableEncrypt)
+
+                val sendCallback = object : SendCallback {
+                    override fun onSendResult(code: Int) {
+                        // If the resultCode value is 207, the messages have been sent successfully. Other values indicate that the messages fail to be sent.
+                        callbackChannel.invokeMethod(
+                            "onMessageSendResultDidCome", hashMapOf(
+                                "sendId" to sendId,
+                                "code" to code
+                            )
+                        )
+                    }
+
+                    override fun onSendProgress(progress: Long) {
+                        callbackChannel.invokeMethod(
+                            "onMessageSendProgressChanged", hashMapOf(
+                                "sendId" to sendId,
+                                "progress" to progress
+                            )
+                        )
+                    }
+                }
+                p2pClient.send(foundDevice, messageBuilder.build(), sendCallback)
+                    .addOnSuccessListener {
+                        result.success(null)
+                    }.addOnFailureListener {
+                        handleFlutterError(result, it.message ?: it.localizedMessage)
+                    }
+            }
+            "sendFile" -> {
+                val arguments = call.arguments as HashMap<*, *>
+                val sendId = arguments["sendId"] as String
+                val filePath = arguments["filePath"] as String
+                val messageDescription = arguments["messageDescription"] as String
+                val enableEncrypt = arguments["enableEncrypt"] as Boolean
+                val deviceUUID = arguments["deviceUUID"] as String
+                val foundDevice: Device? = findDevice(deviceUUID)
+                if (foundDevice == null) {
+                    handleFlutterError(
+                        result,
+                        "Device not found, please refresh device list and try again"
+                    )
+                    return
+                }
+
+                // Build a message
+                val messageBuilder = Message.Builder()
+                // Put message map as payload
+                messageBuilder.setPayload(File(filePath))
+                messageBuilder.setDescription(messageDescription)
+                messageBuilder.setEnableEncrypt(enableEncrypt)
+
+                val sendCallback = object : SendCallback {
+                    override fun onSendResult(code: Int) {
+                        // If the resultCode value is 207, the messages have been sent successfully. Other values indicate that the messages fail to be sent.
+                        callbackChannel.invokeMethod(
+                            "onMessageSendResultDidCome", hashMapOf(
+                                "sendId" to sendId,
+                                "code" to code
+                            )
+                        )
+                    }
+
+                    override fun onSendProgress(progress: Long) {
+                        callbackChannel.invokeMethod(
+                            "onMessageSendProgressChanged", hashMapOf(
+                                "sendId" to sendId,
+                                "progress" to progress
+                            )
+                        )
+                    }
+
+                }
+                p2pClient.send(foundDevice, messageBuilder.build(), sendCallback)
+                    .addOnSuccessListener {
+                        result.success(null)
+                    }.addOnFailureListener {
+                        handleFlutterError(result, it.message ?: it.localizedMessage)
+                    }
+            }
+            "registerMessageReceivedListener" -> {
+                val arguments = call.arguments as HashMap<*, *>
+                val deviceUUID = arguments["deviceUUID"] as String
+                val foundDevice: Device? = findDevice(deviceUUID)
+                if (foundDevice == null) {
+                    handleFlutterError(
+                        result,
+                        "Device not found, please refresh device list and try again"
+                    )
+                    return
+                }
+                unRegisterMessageReceivedListener(deviceUUID, {
+                    val receiver = Receiver {
+                        callbackChannel.invokeMethod(
+                            "onMessageReceived", hashMapOf(
+                                "deviceUUID" to deviceUUID,
+                                "message" to it.toRawMap()
+                            )
+                        )
+                    }
+                    messageListeners[deviceUUID] = receiver
+                    p2pClient.registerReceiver(foundDevice, messageListeners[deviceUUID])
+                        .addOnSuccessListener {
+                            result.success(null)
+                        }.addOnFailureListener {
+                            handleFlutterError(result, it.message ?: it.localizedMessage)
+                        }
+                }, {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
+                })
+            }
+            "removeMessageReceivedListener" -> {
+                val arguments = call.arguments as HashMap<*, *>
+                val deviceUUID = arguments["deviceUUID"] as String
+                unRegisterMessageReceivedListener(deviceUUID, {
+                    result.success(null)
+                }, {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
+                })
+            }
+            "sendNotification" -> {
+                val arguments = call.arguments as HashMap<*, *>
+                val sendId = arguments["sendId"] as String
+                val deviceUUID = arguments["deviceUUID"] as String
+                val notificationOptions = arguments["notificationOptions"] as HashMap<*, *>
+                val notificationButtonContents = notificationOptions["buttonContents"] as List<*>
+                val wearablePackageName =
+                    notificationOptions["wearablePackageName"] as String? ?: companionPackageName
+                val notificationTitle = notificationOptions["title"] as String
+                val notificationContent = notificationOptions["content"] as String
+                val foundDevice: Device? = findDevice(deviceUUID)
+                if (foundDevice == null) {
+                    handleFlutterError(
+                        result,
+                        "Device not found, please refresh device list and try again"
+                    )
+                    return
+                }
+
+                //Build notification
+                val notificationBuilder: Notification.Builder = Notification.Builder()
+                notificationBuilder.setTemplateId(
+                    NotificationTemplate.getTemplateForTemplateId(
+                        50 + notificationButtonContents.count()
+                    )
+                )
+                notificationBuilder.setPackageName(wearablePackageName)
+                notificationBuilder.setTitle(notificationTitle)
+                notificationBuilder.setText(notificationContent)
+
+                val buttonContents = hashMapOf<Int, String>()
+                if (notificationButtonContents.isNotEmpty()) {
+                    buttonContents[NotificationConstants.BUTTON_ONE_CONTENT_KEY] =
+                        notificationButtonContents[0] as String
+                }
+                if (notificationButtonContents.count() >= 2) {
+                    buttonContents[NotificationConstants.BUTTON_TWO_CONTENT_KEY] =
+                        notificationButtonContents[1] as String
+                }
+                if (notificationButtonContents.count() >= 3) {
+                    buttonContents[NotificationConstants.BUTTON_THREE_CONTENT_KEY] =
+                        notificationButtonContents[2] as String
+                }
+                notificationBuilder.setButtonContents(buttonContents)
+
+                val action: Action = object : Action {
+                    override fun onResult(notification: Notification?, feedback: Int) {
+                        callbackChannel.invokeMethod(
+                            "onNotificationResult", hashMapOf(
+                                "sendId" to sendId,
+                                "notification" to notification?.toRawMap()
+                            )
+                        )
+                    }
+
+                    override fun onError(
+                        notification: Notification?,
+                        errorCode: Int,
+                        errorMsg: String
+                    ) {
+                        callbackChannel.invokeMethod(
+                            "onNotificationError", hashMapOf(
+                                "sendId" to sendId,
+                                "notification" to notification?.toRawMap(),
+                                "errorCode" to errorCode,
+                                "errorMsg" to errorMsg
+                            )
+                        )
+                    }
+
+                }
+
+                val notification = notificationBuilder.build()
+
+                notifyClient.notify(foundDevice, notification).addOnSuccessListener {
+                    result.success(null)
+                }.addOnFailureListener {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
+                }
+            }
         }
     }
 
-    private fun findPermissionFromIndex(index: Int): Permission {
-        return when (index) {
+    private fun unRegisterMonitorListener(
+        deviceUUID: String,
+        onSuccess: () -> Unit,
+        onFailure: (e: Exception) -> Unit
+    ) {
+        if (monitorListeners.containsKey(deviceUUID)) {
+            monitorClient.unregister(monitorListeners[deviceUUID]).addOnSuccessListener {
+                onSuccess()
+            }.addOnFailureListener {
+                onFailure(it)
+            }
+        } else {
+            onSuccess()
+        }
+    }
+
+    private fun unRegisterMessageReceivedListener(
+        deviceUUID: String,
+        onSuccess: () -> Unit,
+        onFailure: (e: Exception) -> Unit
+    ) {
+        if (messageListeners.containsKey(deviceUUID)) {
+            p2pClient.unregisterReceiver(messageListeners[deviceUUID]).addOnSuccessListener {
+                onSuccess()
+            }.addOnFailureListener {
+                onFailure(it)
+            }
+        } else {
+            onSuccess()
+        }
+    }
+
+    private fun unRegisterConnectionListener(
+        onSuccess: () -> Unit,
+        onFailure: (e: Exception) -> Unit
+    ) {
+        wearEngineClient.unregisterServiceConnectionListener().addOnSuccessListener {
+            onSuccess()
+        }.addOnFailureListener {
+            onFailure(it)
+        }
+    }
+
+    private fun MonitorData.toHashMap(): HashMap<String, Any?> {
+        return hashMapOf(
+            "intData" to this.asInt(),
+            "mapData" to this.asMap().map {
+                it.key to it.value.toHashMap()
+            },
+            "boolData" to this.asBool(),
+            "stringData" to this.asString()
+        )
+    }
+
+    private fun findDevice(deviceUUID: String): Device? {
+        // Check if deviceUUID contain on either common device or bounded device list
+        if (commonDevices.any { it.uuid == deviceUUID }) {
+            return commonDevices.filter { it.uuid == deviceUUID }[0]
+        } else if (boundedDevices.any { it.uuid == deviceUUID }) {
+            return commonDevices.filter { it.uuid == deviceUUID }[0]
+        }
+        return null
+    }
+
+    private fun MonitorItem.index(): Int {
+        return when (this) {
+            MonitorItem.MONITOR_ITEM_CONNECTION -> 0
+            MonitorItem.MONITOR_ITEM_WEAR -> 1
+            MonitorItem.MONITOR_ITEM_SLEEP -> 2
+            MonitorItem.MONITOR_ITEM_LOW_POWER -> 3
+            MonitorItem.MONITOR_ITEM_SPORT -> 4
+            MonitorItem.MONITOR_POWER_STATUS -> 5
+            MonitorItem.MONITOR_CHARGE_STATUS -> 6
+            MonitorItem.MONITOR_ITEM_HEART_RATE_ALARM -> 7
+            MonitorItem.MONITOR_ITEM_USER_AVAILABLE_KBYTES -> 8
+            else -> 0
+        }
+    }
+
+    private fun Int.toMonitorItem(): MonitorItem {
+        return when (this) {
+            0 -> MonitorItem.MONITOR_ITEM_CONNECTION
+            1 -> MonitorItem.MONITOR_ITEM_WEAR
+            2 -> MonitorItem.MONITOR_ITEM_SLEEP
+            3 -> MonitorItem.MONITOR_ITEM_LOW_POWER
+            4 -> MonitorItem.MONITOR_ITEM_SPORT
+            5 -> MonitorItem.MONITOR_POWER_STATUS
+            6 -> MonitorItem.MONITOR_CHARGE_STATUS
+            7 -> MonitorItem.MONITOR_ITEM_HEART_RATE_ALARM
+            8 -> MonitorItem.MONITOR_ITEM_USER_AVAILABLE_KBYTES
+            else -> MonitorItem.MONITOR_ITEM_CONNECTION
+        }
+    }
+
+    private fun Int.toWearEnginePermission(): Permission {
+        return when (this) {
             0 -> Permission.DEVICE_MANAGER
             1 -> Permission.NOTIFY
             2 -> Permission.SENSOR
@@ -214,8 +750,9 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
         }
     }
 
-    private fun findIndexFromPermission(permission: Permission): Int {
-        return when (permission) {
+
+    private fun Permission.indexFromPermission(): Int {
+        return when (this) {
             Permission.DEVICE_MANAGER -> 0
             Permission.NOTIFY -> 1
             Permission.SENSOR -> 2
@@ -248,6 +785,39 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
             "notifyCapability" to this.notifyCapability,
             "deviceCategory" to this.deviceCategory
         )
+    }
+
+    private fun Message.toRawMap(): HashMap<String, Any?> {
+        return hashMapOf(
+            "messageMap" to this.data.toHashMap(),
+            "filePath" to this.file.path,
+            "description" to this.description,
+            "type" to this.type,
+            "isEnableEncrypt" to this.isEnableEncrypt,
+        )
+    }
+
+    private fun Notification.toRawMap(): HashMap<String, Any?>{
+        return hashMapOf(
+            "templateId" to templateId,
+            "packageName" to packageName,
+            "title" to title,
+            "content" to text,
+            "buttonContents" to buttonContents
+        )
+    }
+
+    private fun HashMap<*, *>.toByteArray(): ByteArray {
+        val byteOut = ByteArrayOutputStream()
+        val out = ObjectOutputStream(byteOut)
+        out.writeObject(this)
+        return byteOut.toByteArray()
+    }
+
+    private fun ByteArray.toHashMap(): HashMap<*, *> {
+        val byteIn = ByteArrayInputStream(this)
+        val ins = ObjectInputStream(byteIn)
+        return ins.readObject() as HashMap<*, *>
     }
 
     override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
