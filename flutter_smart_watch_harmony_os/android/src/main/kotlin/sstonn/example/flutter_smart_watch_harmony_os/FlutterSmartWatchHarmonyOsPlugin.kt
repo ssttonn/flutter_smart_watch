@@ -86,6 +86,7 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
             "configure" -> {
                 activityBinding?.let {
                     val arguments = call.arguments as HashMap<*, *>
+                    // Init all dependencies
                     companionPackageName = arguments["companionPackageName"] as String
                     companionAppFingerprint = arguments["companionAppFingerprint"] as String
                     authClient = HiWear.getAuthClient(it.activity)
@@ -111,13 +112,16 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                 unRegisterConnectionListener({
                     connectionListener = object : ServiceConnectionListener {
                         override fun onServiceConnect() {
+                            // On connect
                             callbackChannel.invokeMethod("onConnectionChanged", true)
                         }
 
                         override fun onServiceDisconnect() {
+                            //On Disconnect
                             callbackChannel.invokeMethod("onConnectionChanged", false)
                         }
                     }
+                    //Create new wear engine client and attach connectionListener to listen to connection changed
                     wearEngineClient =
                         HiWear.getWearEngineClient(activityBinding!!.activity, connectionListener)
                     wearEngineClient.registerServiceConnectionListener().addOnSuccessListener {
@@ -130,6 +134,7 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                 })
             }
             "removeServiceConnectionListener" -> {
+                // Remove connection listener and stop listen to connection changed
                 unRegisterConnectionListener(
                     {
                         result.success(null)
@@ -139,6 +144,7 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                 )
             }
             "releaseConnection" -> {
+                // Signal the WearEngine to release the connection => Disconnect all wearable devices
                 wearEngineClient.releaseConnection().addOnSuccessListener {
                     result.success(null)
                 }.addOnFailureListener {
@@ -146,6 +152,7 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                 }
             }
             "getClientApiLevel" -> {
+                // Get api level of the client app
                 wearEngineClient.clientApiLevel.addOnSuccessListener {
                     result.success(it)
                 }.addOnFailureListener {
@@ -153,6 +160,7 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                 }
             }
             "getServiceApiLevel" -> {
+                // Get api level of current WearEngine service
                 wearEngineClient.serviceApiLevel.addOnSuccessListener {
                     result.success(it)
                 }.addOnFailureListener {
@@ -195,10 +203,13 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
             "checkWearEnginePermissions" -> {
                 val permissionIndexes =
                     (call.arguments as HashMap<*, *>)["permissionIndexes"] as List<*>
-                //check if the requested permission is granted
+                //check if all requested permissions are granted
                 authClient.checkPermissions(permissionIndexes.map { (it as Int).toWearEnginePermission() }
-                    .toTypedArray()).addOnSuccessListener {
-                    result.success(it)
+                    .toTypedArray()).addOnSuccessListener { permissionGrantedResults ->
+                    val results: Map<Int, Boolean> = permissionGrantedResults.indices.map {
+                        (permissionIndexes[it] as Int) to permissionGrantedResults[it]
+                    }.toMap()
+                    result.success(results)
                 }.addOnFailureListener {
                     handleFlutterError(result, it.message ?: it.localizedMessage)
                 }
@@ -259,7 +270,7 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                     // 0 = Device.DEVICE_CAPABILITY_SUPPORT: supported
                     // 1 = Device.CAPABILITY_NOT_SUPPORT: not supported
                     // 2 = Device.UNKNOWN
-                    //Process logic when the device supports the CBTI capability set.
+                    //  Process logic when the device supports the CBTI capability set.
                     result.success(it)
                 }.addOnFailureListener {
                     handleFlutterError(result, it.message ?: it.localizedMessage)
@@ -319,7 +330,7 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                 }
                 unRegisterMonitorListener(deviceUUID, {
                     val monitorItemIndexes =
-                        (call.arguments as HashMap<*, *>)["monitorItemIndexes"] as List<*>
+                        arguments["monitorItemIndexes"] as List<*>
                     monitorListeners[deviceUUID] =
                         MonitorListener { errorCode, monitorItem, monitorData ->
                             if (errorCode != 0) return@MonitorListener
@@ -778,7 +789,7 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
             "uuid" to this.uuid,
             "model" to this.model,
             "reservedness" to this.reservedness,
-            "sorfwareVersion" to this.softwareVersion,
+            "softwareVersion" to this.softwareVersion,
             "isConnected" to this.isConnected,
             "p2pCapability" to this.p2pCapability,
             "monitorCapability" to this.monitorCapability,
@@ -797,7 +808,7 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
         )
     }
 
-    private fun Notification.toRawMap(): HashMap<String, Any?>{
+    private fun Notification.toRawMap(): HashMap<String, Any?> {
         return hashMapOf(
             "templateId" to templateId,
             "packageName" to packageName,
