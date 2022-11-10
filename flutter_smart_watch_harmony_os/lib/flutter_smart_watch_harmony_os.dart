@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_watch_harmony_os/harmonyos_observer.dart';
 import 'package:flutter_smart_watch_harmony_os/helpers/enums.dart';
 import 'package:flutter_smart_watch_harmony_os/models/harmony_device.dart';
 import 'package:flutter_smart_watch_harmony_os/models/monitor_data.dart';
+import 'package:flutter_smart_watch_harmony_os/models/wear_engine_message.dart';
 import 'package:flutter_smart_watch_platform_interface/flutter_smart_watch_platform_interface.dart';
+import 'package:flutter_smart_watch_platform_interface/helpers/utils.dart';
 
 /// An implementation of [FlutterSmartWatchHarmonyOsPlatform] that uses method channels.
 class FlutterSmartWatchHarmonyOs extends FlutterSmartWatchPlatformInterface {
@@ -128,6 +131,42 @@ class FlutterSmartWatchHarmonyOs extends FlutterSmartWatchPlatformInterface {
             _queryForMonitorData(item: monitorItem, deviceUUID: _device.uuid);
         _device.monitorItemsChanged = ({required List<MonitorItem> items}) =>
             _registerMonitorListener(deviceUUID: _device.uuid, items: items);
+        _device.isCompanionAppInstalled =
+            () => _isCompanionAppInstalled(deviceUUID: _device.uuid);
+        _device.getCompanionAppVersion =
+            () => _getCompanionAppVersion(deviceUUID: _device.uuid);
+        _device.checkForCompanionAppRunningStatus = (
+                {required ReplyReceived onReplyReceived}) =>
+            _checkForCompanionAppRunningStatus(
+                deviceUUID: _device.uuid, onReplyReceived: onReplyReceived);
+        _device.sendMessage = (
+                {required Map<String, dynamic> data,
+                required MessageResultReceived onSendResultReceived,
+                required MessageSendProgressChanged onSendProgressChanged,
+                String description = "",
+                bool enableEncrypt = true}) =>
+            _sendMessage(
+                deviceUUID: _device.uuid,
+                data: data,
+                enableEncrypt: enableEncrypt,
+                description: description,
+                onSendResultReceived: onSendResultReceived,
+                onSendProgressChanged: onSendProgressChanged);
+        _device.sendFile = (
+                {required File file,
+                required MessageResultReceived onSendResultReceived,
+                required MessageSendProgressChanged onSendProgressChanged,
+                String description = "",
+                bool enableEncrypt = true}) =>
+            _sendFile(
+                deviceUUID: _device.uuid,
+                file: file,
+                enableEncrypt: enableEncrypt,
+                description: description,
+                onSendResultReceived: onSendResultReceived,
+                onSendProgressChanged: onSendProgressChanged);
+        _device.messageReceived =
+            () => _registerMessageListener(deviceUUID: _device.uuid);
         return _device;
       }).toList();
     });
@@ -179,14 +218,99 @@ class FlutterSmartWatchHarmonyOs extends FlutterSmartWatchPlatformInterface {
         .invokeMethod("removeMonitorListener", {"deviceUUID": deviceUUID});
   }
 
-  Future<bool> isCompanionAppInstalled({required String deviceUUID}) {
+  Future<bool> _isCompanionAppInstalled({required String deviceUUID}) {
     return methodChannel.invokeMethod("isCompanionAppInstalled",
         {"deviceUUID": deviceUUID}).then((result) => result ?? false);
   }
 
-  Future<int?> getCompanionAppVersion({required String deviceUUID}) {
+  Future<int?> _getCompanionAppVersion({required String deviceUUID}) {
     return methodChannel.invokeMethod("getCompanionAppVersion", {
       "deviceUUID": deviceUUID
     }).then((version) => version == -1 ? null : version);
   }
+
+  Future<void> _checkForCompanionAppRunningStatus(
+      {required String deviceUUID, required ReplyReceived onReplyReceived}) {
+    String pingId = getRandomString(100);
+    _harmonyOsObserver.replyReceivedCallbacks[pingId] = onReplyReceived;
+    return methodChannel.invokeMethod("checkForCompanionAppRunningStatus",
+        {"deviceUUID": deviceUUID, "pingId": pingId});
+  }
+
+  Future<WearEngineMessage> _sendMessage(
+      {required String deviceUUID,
+      required Map<String, dynamic> data,
+      required MessageResultReceived onSendResultReceived,
+      required MessageSendProgressChanged onSendProgressChanged,
+      String description = "",
+      bool enableEncrypt = true}) {
+    String sendId = getRandomString(100);
+    _harmonyOsObserver.messageResultReceivedCallbacks[sendId] =
+        onSendResultReceived;
+    _harmonyOsObserver.messageSendProgressChangedCallbacks[sendId] =
+        onSendProgressChanged;
+    return methodChannel.invokeMethod("sendNormalMessage", {
+      "sendId": sendId,
+      "data": data,
+      "messageDescription": description,
+      "enableEncrypt": enableEncrypt,
+      "deviceUUID": deviceUUID
+    }).then((_) {
+      return WearEngineMessage(
+          data: data,
+          type: MessageType.data,
+          isEnableEncrypt: enableEncrypt,
+          description: description);
+    });
+  }
+
+  Future<WearEngineMessage> _sendFile(
+      {required String deviceUUID,
+      required File file,
+      required MessageResultReceived onSendResultReceived,
+      required MessageSendProgressChanged onSendProgressChanged,
+      String description = "",
+      bool enableEncrypt = true}) {
+    String sendId = getRandomString(100);
+    _harmonyOsObserver.messageResultReceivedCallbacks[sendId] =
+        onSendResultReceived;
+    _harmonyOsObserver.messageSendProgressChangedCallbacks[sendId] =
+        onSendProgressChanged;
+    return methodChannel.invokeMethod("sendNormalMessage", {
+      "sendId": sendId,
+      "filePath": file.path,
+      "messageDescription": description,
+      "enableEncrypt": enableEncrypt,
+      "deviceUUID": deviceUUID
+    }).then((_) {
+      return WearEngineMessage(
+          file: file,
+          type: MessageType.data,
+          isEnableEncrypt: enableEncrypt,
+          description: description);
+    });
+  }
+
+  Stream<WearEngineMessage> _registerMessageListener(
+      {required String deviceUUID}) async* {
+    await _removeMessageListener(deviceUUID: deviceUUID);
+    if (_harmonyOsObserver.messageReceivedStreamController == null) {
+      _harmonyOsObserver.messageReceivedStreamController =
+          StreamController.broadcast();
+    }
+    await methodChannel.invokeMethod(
+        "registerMessageReceivedListener", {"deviceUUID": deviceUUID});
+    yield* _harmonyOsObserver.messageReceivedStreamController!.stream;
+  }
+
+  Future<void> _removeMessageListener({required String deviceUUID}) {
+    if (_harmonyOsObserver.messageReceivedStreamController != null) {
+      _harmonyOsObserver.messageReceivedStreamController?.close();
+      _harmonyOsObserver.messageReceivedStreamController = null;
+    }
+    return methodChannel.invokeMethod(
+        "removeMessageReceivedListener", {"deviceUUID": deviceUUID});
+  }
+
+  // Future<void> _sendNotification({required String deviceUUID}) {}
 }

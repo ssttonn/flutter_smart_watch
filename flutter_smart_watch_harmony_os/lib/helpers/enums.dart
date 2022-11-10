@@ -21,3 +21,9 @@ enum MonitorItem {
   heartRateAlarm,
   availableKBytes
 }
+
+enum CompanionAppStatus { notInstalled, notStarted, started }
+
+enum MessageType { data, file }
+
+enum NotificationTemplate { none, oneButton, twoButton, threeButton }

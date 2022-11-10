@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:flutter_smart_watch_harmony_os/harmonyos_observer.dart';
 import 'package:flutter_smart_watch_harmony_os/models/monitor_data.dart';
+import 'package:flutter_smart_watch_harmony_os/models/wear_engine_message.dart';
 
 import '../helpers/enums.dart';
 
@@ -23,8 +27,26 @@ class WearEngineDevice {
   late Future<int> Function() getAvailableStorageSize;
   late Future<MonitorData> Function({required MonitorItem monitorItem})
       queryMonitorItem;
+  late Future<bool> Function() isCompanionAppInstalled;
+  late Future<int?> Function() getCompanionAppVersion;
+  late Future<void> Function({required ReplyReceived onReplyReceived})
+      checkForCompanionAppRunningStatus;
+  late Future<WearEngineMessage> Function(
+      {required Map<String, dynamic> data,
+      required MessageResultReceived onSendResultReceived,
+      required MessageSendProgressChanged onSendProgressChanged,
+      String description,
+      bool enableEncrypt}) sendMessage;
+  late Future<WearEngineMessage> Function(
+      {required File file,
+      required MessageResultReceived onSendResultReceived,
+      required MessageSendProgressChanged onSendProgressChanged,
+      String description,
+      bool enableEncrypt}) sendFile;
+
   late Stream<Map<String, dynamic>> Function({required List<MonitorItem> items})
       monitorItemsChanged;
+  late Stream<WearEngineMessage> Function() messageReceived;
 
   WearEngineDevice(
       {required this.basicInfo,

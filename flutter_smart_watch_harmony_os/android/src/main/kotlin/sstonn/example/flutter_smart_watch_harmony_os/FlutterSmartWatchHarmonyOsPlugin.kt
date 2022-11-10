@@ -417,6 +417,8 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                     return
                 }
                 val pingCallback = PingCallback {
+                    // Result of communicating with the peer device using the ping method.
+                    // If the errCode value is 200, your app has not been installed on the wearable device. If the errCode value is 201, your app has been installed but not started on the wearable device. If the errCode value is 202, your app has been started on the wearable device.
                     callbackChannel.invokeMethod(
                         "onConnectedWearableDeviceReplied", hashMapOf(
                             "pingId" to pingId,
@@ -435,7 +437,7 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
             "sendNormalMessage" -> {
                 val arguments = call.arguments as HashMap<*, *>
                 val sendId = arguments["sendId"] as String
-                val messageMap = arguments["message"] as HashMap<*, *>
+                val messageMap = arguments["data"] as HashMap<*, *>
                 val messageDescription = arguments["messageDescription"] as String
                 val enableEncrypt = arguments["enableEncrypt"] as Boolean
                 val deviceUUID = arguments["deviceUUID"] as String
@@ -497,11 +499,21 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                     )
                     return
                 }
+                val sendFile = File(filePath)
+
+                // Check if the file is exist
+                if (!sendFile.exists()){
+                    handleFlutterError(
+                        result,
+                        "Unable to find corresponding file, please try again"
+                    )
+                    return
+                }
 
                 // Build a message
                 val messageBuilder = Message.Builder()
                 // Put message map as payload
-                messageBuilder.setPayload(File(filePath))
+                messageBuilder.setPayload(sendFile)
                 messageBuilder.setDescription(messageDescription)
                 messageBuilder.setEnableEncrypt(enableEncrypt)
 
@@ -644,6 +656,8 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                     }
 
                 }
+
+                notificationBuilder.setAction(action)
 
                 val notification = notificationBuilder.build()
 

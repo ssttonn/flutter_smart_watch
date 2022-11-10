@@ -1,5 +1,6 @@
 import 'dart:io';
-import 'package:flutter_smart_watch_ios/src/helpers/utils.dart';
+
+import 'package:flutter_smart_watch_platform_interface/helpers/utils.dart';
 // import 'package:json_annotation/json_annotation.dart';
 
 part 'file_transfer.g.dart';

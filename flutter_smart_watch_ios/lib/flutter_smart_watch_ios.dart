@@ -7,9 +7,9 @@ import 'package:flutter_smart_watch_ios/src/models/application_context.dart';
 import 'package:flutter_smart_watch_ios/src/models/message.dart';
 import 'package:flutter_smart_watch_ios/watch_os_observer.dart';
 import 'package:flutter_smart_watch_platform_interface/flutter_smart_watch_platform_interface.dart';
+import 'package:flutter_smart_watch_platform_interface/helpers/utils.dart';
 
 import 'src/enums/activate_state.dart';
-import 'src/helpers/utils.dart';
 import 'src/models/error.dart';
 import 'src/models/paired_device_info.dart';
 import 'src/models/user_info_transfer.dart';
