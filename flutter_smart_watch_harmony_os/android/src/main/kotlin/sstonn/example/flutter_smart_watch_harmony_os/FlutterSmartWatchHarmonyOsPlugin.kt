@@ -37,16 +37,13 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
     }
 
     //companion app package name
-    private var companionPackageName: String = ""
+    private var companionPackageName: String? = null
 
     //companion app fingerprint
-    private var companionAppFingerprint: String = ""
+    private var companionAppFingerprint: String? = null
 
     //Activity and context references
     private var activityBinding: ActivityPluginBinding? = null
-
-    // Callback for permission listener
-    private var authCallback: AuthCallback? = null
 
     //clients use to authenticate with Wear Engine
     private lateinit var deviceClient: DeviceClient
@@ -87,8 +84,8 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                 activityBinding?.let {
                     val arguments = call.arguments as HashMap<*, *>
                     // Init all dependencies
-                    companionPackageName = arguments["companionPackageName"] as String
-                    companionAppFingerprint = arguments["companionAppFingerprint"] as String
+                    companionPackageName = arguments["companionPackageName"] as String?
+                    companionAppFingerprint = arguments["companionAppFingerprint"] as String?
                     authClient = HiWear.getAuthClient(it.activity)
                     deviceClient = HiWear.getDeviceClient(it.activity)
                     monitorClient = HiWear.getMonitorClient(it.activity)
@@ -96,20 +93,6 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                     p2pClient = HiWear.getP2pClient(it.activity)
                     p2pClient.setPeerPkgName(companionPackageName)
                     p2pClient.setPeerFingerPrint(companionAppFingerprint)
-                }
-                result.success(null)
-            }
-            "hasAvailableDevices" -> {
-                //Check if user has available devices
-                deviceClient.hasAvailableDevices().addOnSuccessListener {
-                    // return the result to flutter side
-                    result.success(it)
-                }.addOnFailureListener {
-                    handleFlutterError(result, it.message ?: it.localizedMessage)
-                }
-            }
-            "addServiceConnectionListener" -> {
-                unRegisterConnectionListener({
                     connectionListener = object : ServiceConnectionListener {
                         override fun onServiceConnect() {
                             // On connect
@@ -124,6 +107,22 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                     //Create new wear engine client and attach connectionListener to listen to connection changed
                     wearEngineClient =
                         HiWear.getWearEngineClient(activityBinding!!.activity, connectionListener)
+                    result.success(null)
+                    return
+                }
+                handleFlutterError(result, "Can't configure Wear Engine Service, please try again")
+            }
+            "hasAvailableDevices" -> {
+                //Check if user has available devices
+                deviceClient.hasAvailableDevices().addOnSuccessListener {
+                    // return the result to flutter side
+                    result.success(it)
+                }.addOnFailureListener {
+                    handleFlutterError(result, it.message ?: it.localizedMessage)
+                }
+            }
+            "addServiceConnectionListener" -> {
+                unRegisterConnectionListener({
                     wearEngineClient.registerServiceConnectionListener().addOnSuccessListener {
                         result.success(null)
                     }.addOnFailureListener {
@@ -167,28 +166,6 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                     handleFlutterError(result, it.message ?: it.localizedMessage)
                 }
             }
-            "addPermissionsListener" -> {
-                authCallback = object : AuthCallback {
-                    override fun onOk(p0: Array<out Permission>?) {
-                        p0?.let {
-                            callbackChannel.invokeMethod(
-                                "permissionGranted",
-                                it.map { permission -> permission.indexFromPermission() })
-                        }
-                    }
-
-                    override fun onCancel() {
-                        callbackChannel.invokeMethod(
-                            "permissionCancelled",
-                            null
-                        )
-                    }
-
-                }
-            }
-            "removePermissionListener" -> {
-                authCallback = null
-            }
             "checkWearEnginePermission" -> {
                 val permissionIndex =
                     (call.arguments as HashMap<*, *>)["permissionIndex"] as Int
@@ -215,8 +192,33 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                 }
             }
             "requestPermissions" -> {
+                val arguments = (call.arguments as HashMap<*, *>)
                 val permissionIndexes =
-                    (call.arguments as HashMap<*, *>)["permissionIndexes"] as List<*>
+                    arguments["permissionIndexes"] as List<*>
+                val requestId = arguments["requestId"] as String
+                val authCallback = object : AuthCallback {
+                    override fun onOk(p0: Array<out Permission>?) {
+                        p0?.let {
+                            callbackChannel.invokeMethod(
+                                "permissionGranted",
+                                mapOf(
+                                    "permissionIndexes" to it.map { permission -> permission.indexFromPermission() },
+                                    "requestId" to requestId
+                                )
+                            )
+                        }
+                    }
+
+                    override fun onCancel() {
+                        callbackChannel.invokeMethod(
+                            "permissionCancelled",
+                            mapOf(
+                                "requestId" to requestId
+                            )
+                        )
+                    }
+
+                }
                 authClient.requestPermission(
                     authCallback,
                     *permissionIndexes.map { (it as Int).toWearEnginePermission() }
@@ -502,7 +504,7 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
                 val sendFile = File(filePath)
 
                 // Check if the file is exist
-                if (!sendFile.exists()){
+                if (!sendFile.exists()) {
                     handleFlutterError(
                         result,
                         "Unable to find corresponding file, please try again"
@@ -814,7 +816,7 @@ class FlutterSmartWatchHarmonyOsPlugin : FlutterPlugin, MethodCallHandler, Activ
 
     private fun Message.toRawMap(): HashMap<String, Any?> {
         return hashMapOf(
-            "messageMap" to this.data.toHashMap(),
+            "messageData" to this.data.toHashMap(),
             "filePath" to this.file.path,
             "description" to this.description,
             "type" to this.type,

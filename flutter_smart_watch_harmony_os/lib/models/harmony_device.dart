@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_smart_watch_harmony_os/harmonyos_observer.dart';
 import 'package:flutter_smart_watch_harmony_os/models/monitor_data.dart';
 import 'package:flutter_smart_watch_harmony_os/models/wear_engine_message.dart';
+import 'package:flutter_smart_watch_platform_interface/helpers/pair.dart';
 
 import '../helpers/enums.dart';
 
@@ -44,8 +45,8 @@ class WearEngineDevice {
       String description,
       bool enableEncrypt}) sendFile;
 
-  late Stream<Map<String, dynamic>> Function({required List<MonitorItem> items})
-      monitorItemsChanged;
+  late Stream<Pair<MonitorItem, MonitorData>> Function(
+      {required List<MonitorItem> items}) monitorItemsChanged;
   late Stream<WearEngineMessage> Function() messageReceived;
 
   WearEngineDevice(

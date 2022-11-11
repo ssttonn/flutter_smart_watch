@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_watch_harmony_os/flutter_smart_watch_harmony_os.dart';
 
@@ -11,6 +13,12 @@ class MyHarmonyOsApp extends StatefulWidget {
 class _MyHarmonyOsAppState extends State<MyHarmonyOsApp> {
   FlutterSmartWatchHarmonyOs _flutterSmartWatchPlugin =
       FlutterSmartWatchHarmonyOs();
+
+  @override
+  void initState() {
+    super.initState();
+    _flutterSmartWatchPlugin.configure().then((value) {});
+  }
 
   @override
   Widget build(BuildContext context) {
