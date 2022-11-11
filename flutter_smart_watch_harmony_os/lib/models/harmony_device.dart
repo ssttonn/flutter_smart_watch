@@ -6,15 +6,26 @@ import 'package:flutter_smart_watch_harmony_os/models/wear_engine_message.dart';
 import 'package:flutter_smart_watch_platform_interface/helpers/pair.dart';
 
 import '../helpers/enums.dart';
+import 'notification.dart';
 
 class WearEngineDevice {
   final String basicInfo;
   final String capability;
+
+  ///Obtains the device name.
   final String name;
+
+  ///Obtains the product type.
+  ///
+  ///0: Wearable product.
   final int productType;
+
   final String identify;
   final String uuid;
+
+  ///Obtains the device model name.
   final String model;
+
   final String reservedness;
   final String softwareVersion;
   final bool isConnected;
@@ -44,6 +55,12 @@ class WearEngineDevice {
       required MessageSendProgressChanged onSendProgressChanged,
       String description,
       bool enableEncrypt}) sendFile;
+  late Future<void> Function(
+          {required String deviceUUID,
+          required WearEngineNotificationSendOptions options,
+          required NotificationResultReceived notificationResultReceived,
+          required NoticationErrorDidHappen noticationErrorDidHappen})
+      sendNotification;
 
   late Stream<Pair<MonitorItem, MonitorData>> Function(
       {required List<MonitorItem> items}) monitorItemsChanged;

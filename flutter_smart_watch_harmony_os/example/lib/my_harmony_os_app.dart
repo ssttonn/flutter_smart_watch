@@ -17,7 +17,9 @@ class _MyHarmonyOsAppState extends State<MyHarmonyOsApp> {
   @override
   void initState() {
     super.initState();
-    _flutterSmartWatchPlugin.configure().then((value) {});
+    _flutterSmartWatchPlugin.configure().then((value) {
+      _flutterSmartWatchPlugin..hasAvailableDevices().then(inspect);
+    });
   }
 
   @override
