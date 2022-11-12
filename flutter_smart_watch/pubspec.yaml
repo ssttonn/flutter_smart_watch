@@ -11,25 +11,24 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # json_annotation: ^4.7.0
-  image_picker: ^0.8.6
   flutter_smart_watch_android:
-    path: ../flutter_smart_watch_android/
+    path: ../flutter_smart_watch_android
   flutter_smart_watch_ios:
-    path: ../flutter_smart_watch_ios/
+    path: ../flutter_smart_watch_ios
+  flutter_smart_watch_harmony_os:
+    path: ../flutter_smart_watch_harmony_os
   flutter_smart_watch_platform_interface:
     path: ../flutter_smart_watch_platform_interface
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  json_serializable: ^6.4.1
-  build_runner: ^2.2.1
 
 flutter:
   plugin:
     platforms:
       android:
         default_package: flutter_smart_watch_android
+        package: flutter_smart_watch_harmony_os
       ios:
         default_package: flutter_smart_watch_ios

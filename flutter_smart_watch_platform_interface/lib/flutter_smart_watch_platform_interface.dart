@@ -1,5 +1,9 @@
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
+export 'helpers/pair.dart';
+export 'helpers/utils.dart';
+export 'helpers/extension.dart';
+
 abstract class FlutterSmartWatchPlatformInterface extends PlatformInterface {
   /// [FlutterSmartWatchPlatformInterface] constructor
   FlutterSmartWatchPlatformInterface() : super(token: _token);
