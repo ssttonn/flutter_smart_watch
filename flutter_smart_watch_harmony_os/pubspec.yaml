@@ -1,0 +1,30 @@
+name: flutter_smart_watch_harmony_os
+description: A new Flutter plugin project.
+version: 0.0.1
+homepage: https://github.com/ssttonn/flutter_smart_watch
+
+environment:
+  sdk: ">=2.17.6 <3.0.0"
+  flutter: ">=2.5.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  plugin_platform_interface: ^2.0.2
+  flutter_smart_watch_platform_interface:
+    path: ../flutter_smart_watch_platform_interface/
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  plugin:
+    implements: flutter_smart_watch
+    platforms:
+      android:
+        package: sstonn.example.flutter_smart_watch_harmony_os
+        pluginClass: FlutterSmartWatchHarmonyOsPlugin
+        dartPluginClass: FlutterSmartWatchHarmonyOs
+
+ 
