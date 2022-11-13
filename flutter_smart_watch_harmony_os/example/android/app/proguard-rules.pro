@@ -1,5 +1,0 @@
--keepattributes *Annotation*
--keepattributes Signature
--keepattributes InnerClasses
--keepattributes EnclosingMethod
--keep class com.huawei.wearengine.**{*;}
