@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  package="sstonn.example.flutter_smart_watch_harmony_os">
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <queries>
+        <package android:name="com.huawei.health" />
+    </queries>
+</manifest>
