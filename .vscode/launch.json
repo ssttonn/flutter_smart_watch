@@ -6,14 +6,14 @@
     "configurations": [
         {
             "name": "IOS example",
-            "cwd": "flutter_smart_watch_ios/example",
+            "cwd": "flutter_watch_os_connectivity/example",
             "request": "launch",
             "type": "dart",
             "program": "lib/main.dart"
         },
         {
             "name": "Android example",
-            "cwd": "flutter_smart_watch_android/example",
+            "cwd": "flutter_wear_os_connectivity/example",
             "request": "launch",
             "type": "dart",
             "flutterMode": "debug"

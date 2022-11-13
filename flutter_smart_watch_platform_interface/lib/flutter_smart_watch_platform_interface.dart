@@ -1,8 +1,6 @@
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-export 'helpers/pair.dart';
-export 'helpers/utils.dart';
-export 'helpers/extension.dart';
+export 'helpers/index.dart';
 
 abstract class FlutterSmartWatchPlatformInterface extends PlatformInterface {
   /// [FlutterSmartWatchPlatformInterface] constructor

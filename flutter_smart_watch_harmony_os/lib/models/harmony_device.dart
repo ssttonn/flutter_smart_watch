@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_smart_watch_harmony_os/harmonyos_observer.dart';
 import 'package:flutter_smart_watch_harmony_os/models/monitor_data.dart';
 import 'package:flutter_smart_watch_harmony_os/models/wear_engine_message.dart';
-import 'package:flutter_smart_watch_platform_interface/helpers/pair.dart';
+import 'package:flutter_smart_watch_platform_interface/flutter_smart_watch_platform_interface.dart';
 
 import '../helpers/enums.dart';
 import 'notification.dart';

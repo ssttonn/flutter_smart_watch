@@ -1,21 +1,20 @@
-library flutter_smart_watch_ios;
+library flutter_smart_watch_watch_os;
 
-import 'package:flutter_smart_watch_android/flutter_smart_watch_android.dart';
-import 'package:flutter_smart_watch_ios/flutter_smart_watch_ios.dart';
+import 'package:flutter_wear_os_connectivity/flutter_wear_os_connectivity.dart';
 import 'package:flutter_smart_watch_harmony_os/flutter_smart_watch_harmony_os.dart';
+import 'package:flutter_watch_os_connectivity/flutter_watch_os_connectivity.dart';
 
-export 'package:flutter_smart_watch_ios/flutter_smart_watch_ios.dart';
-export 'package:flutter_smart_watch_android/flutter_smart_watch_android.dart';
+export 'package:flutter_wear_os_connectivity/flutter_wear_os_connectivity.dart';
 export 'package:flutter_smart_watch_harmony_os/flutter_smart_watch_harmony_os.dart';
 
 class FlutterSmartWatch {
-  FlutterSmartWatchIos _ios = FlutterSmartWatchIos();
-  FlutterSmartWatchAndroid _android = FlutterSmartWatchAndroid();
+  FlutterWatchOsConnectivity _watchOS = FlutterWatchOsConnectivity();
+  FlutterWearOsConnectivity _wearOS = FlutterWearOsConnectivity();
   FlutterSmartWatchHarmonyOs _harmonyOs = FlutterSmartWatchHarmonyOs();
 
-  FlutterSmartWatchIos get ios => _ios;
+  FlutterWatchOsConnectivity get watchOS => _watchOS;
 
-  FlutterSmartWatchAndroid get android => _android;
+  FlutterWearOsConnectivity get wearOS => _wearOS;
 
   FlutterSmartWatchHarmonyOs get harmonyOs => _harmonyOs;
 

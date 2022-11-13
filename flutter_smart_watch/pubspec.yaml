@@ -11,10 +11,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_smart_watch_android:
-    path: ../flutter_smart_watch_android
-  flutter_smart_watch_ios:
-    path: ../flutter_smart_watch_ios
+  flutter_wear_os_connectivity:
+    path: ../flutter_wear_os_connectivity
+  flutter_watch_os_connectivity:
+    path: ../flutter_watch_os_connectivity
   flutter_smart_watch_harmony_os:
     path: ../flutter_smart_watch_harmony_os
   flutter_smart_watch_platform_interface:
@@ -28,7 +28,7 @@ flutter:
   plugin:
     platforms:
       android:
-        default_package: flutter_smart_watch_android
+        default_package: flutter_wear_os_connectivity
         package: flutter_smart_watch_harmony_os
       ios:
-        default_package: flutter_smart_watch_ios
+        default_package: flutter_watch_os_connectivity

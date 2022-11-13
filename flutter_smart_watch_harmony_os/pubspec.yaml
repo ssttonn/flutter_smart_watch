@@ -25,5 +25,6 @@ flutter:
       android:
         package: sstonn.example.flutter_smart_watch_harmony_os
         pluginClass: FlutterSmartWatchHarmonyOsPlugin
+        dartPluginClass: FlutterSmartWatchHarmonyOs
 
  
